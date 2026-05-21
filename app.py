@@ -406,46 +406,45 @@ def render_metric_card(label: str, value: Any, helper: str) -> None:
     )
 
 
-def render_campaign_card(row: pd.Series) -> None:
+def campaign_card_html(row: pd.Series) -> str:
     brand_colours = style_for_brand(row.get("brand", ""))
     priority_colours = style_for_priority(row.get("priority", ""))
 
-    card = f"""
-    <div class="campaign-card">
-        <div class="badge-row">
-            {badge(row.get("brand", "—"), brand_colours)}
-            {badge(str(row.get("week_bucket", "—")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
-            {badge(str(row.get("priority", "—")), priority_colours)}
-        </div>
+    return f"""
+<div class="campaign-card">
+  <div class="badge-row">
+    {badge(row.get("brand", "—"), brand_colours)}
+    {badge(str(row.get("week_bucket", "—")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
+    {badge(str(row.get("priority", "—")), priority_colours)}
+  </div>
 
-        <div class="campaign-title">{html.escape(str(row.get("campaign", "Untitled campaign")))}</div>
+  <div class="campaign-title">{html.escape(str(row.get("campaign", "Untitled campaign")))}</div>
 
-        <div class="campaign-note">
-            Board: {html.escape(str(row.get("board_name", "—")))}
-            · Group: {html.escape(str(row.get("group", "—")))}
-        </div>
+  <div class="campaign-note">
+    Board: {html.escape(str(row.get("board_name", "—")))}
+    · Group: {html.escape(str(row.get("group", "—")))}
+  </div>
 
-        <div class="mini-grid">
-            <div>
-                <div class="mini-label">Owner</div>
-                <div class="mini-value">{html.escape(str(row.get("owners_display", "—")))}</div>
-            </div>
-            <div>
-                <div class="mini-label">Stage</div>
-                <div class="mini-value">{html.escape(str(row.get("stage", "—")))}</div>
-            </div>
-            <div>
-                <div class="mini-label">Status</div>
-                <div class="mini-value">{html.escape(str(row.get("status", "—")))}</div>
-            </div>
-            <div>
-                <div class="mini-label">Key Date</div>
-                <div class="mini-value">{html.escape(str(row.get("key_date_display", "No date")))}</div>
-            </div>
-        </div>
+  <div class="mini-grid">
+    <div>
+      <div class="mini-label">Owner</div>
+      <div class="mini-value">{html.escape(str(row.get("owners_display", "—")))}</div>
     </div>
-    """
-    st.markdown(card, unsafe_allow_html=True)
+    <div>
+      <div class="mini-label">Stage</div>
+      <div class="mini-value">{html.escape(str(row.get("stage", "—")))}</div>
+    </div>
+    <div>
+      <div class="mini-label">Status</div>
+      <div class="mini-value">{html.escape(str(row.get("status", "—")))}</div>
+    </div>
+    <div>
+      <div class="mini-label">Key Date</div>
+      <div class="mini-value">{html.escape(str(row.get("key_date_display", "No date")))}</div>
+    </div>
+  </div>
+</div>
+""".strip()
 
 
 # ============================================================
@@ -741,9 +740,11 @@ def build_rows(
 def owner_universe(df: pd.DataFrame) -> List[str]:
     if df.empty or "owners" not in df.columns:
         return []
+
     owners: List[str] = []
     for values in df["owners"]:
         owners.extend(values if isinstance(values, list) else split_people(values))
+
     return sorted(set(owners))
 
 
@@ -905,13 +906,17 @@ range_caption = " · ".join(
 st.caption(range_caption)
 
 metric_cols = st.columns(4)
+
 with metric_cols[0]:
     render_metric_card("Campaigns", len(filtered_df), "matching current filters")
+
 with metric_cols[1]:
     render_metric_card("Brands", filtered_df["brand"].nunique() if not filtered_df.empty else 0, "active in this view")
+
 with metric_cols[2]:
     visible_people = owner_universe(filtered_df) if not filtered_df.empty else []
     render_metric_card("Owners", len(visible_people), "people assigned")
+
 with metric_cols[3]:
     high_count = filtered_df["priority"].astype(str).str.lower().eq("high").sum() if not filtered_df.empty else 0
     render_metric_card("High Priority", int(high_count), "needs closer tracking")
@@ -919,12 +924,15 @@ with metric_cols[3]:
 st.markdown("<br>", unsafe_allow_html=True)
 
 week_counts = campaigns_df.copy()
+
 if person_filter != "All":
     week_counts = week_counts[week_counts["owners"].apply(lambda vals: person_filter in vals)]
+
 if brand_filter != "All":
     week_counts = week_counts[week_counts["brand"] == brand_filter]
 
 wk_cols = st.columns(4)
+
 for i, label in enumerate(["This Week", "Next Week", "Week After Next", "Later"]):
     count = int((week_counts["week_bucket"] == label).sum())
     with wk_cols[i]:
@@ -973,33 +981,37 @@ else:
                 "item_id": "Item ID",
             }
         )
+
         st.dataframe(table_df, use_container_width=True, hide_index=True, height=560)
+
     else:
         if person_filter == "All":
             for owner in owner_universe(filtered_df):
                 owner_df = filtered_df[filtered_df["owners"].apply(lambda vals: owner in vals)]
+
                 if owner_df.empty:
                     continue
 
-                st.markdown(
-                    f"""
-                    <div class="owner-block">
-                        <div class="owner-header">
-                            <div>
-                                <div class="owner-name">{html.escape(owner)}</div>
-                                <div class="owner-sub">{len(owner_df)} campaign{'s' if len(owner_df) != 1 else ''} assigned</div>
-                            </div>
-                            <div class="count-pill">{len(owner_df)}</div>
-                        </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                for _, row in owner_df.iterrows():
-                    render_campaign_card(row)
-                st.markdown("</div>", unsafe_allow_html=True)
+                cards_html = "\n".join(campaign_card_html(row) for _, row in owner_df.iterrows())
+
+                owner_html = f"""
+<div class="owner-block">
+  <div class="owner-header">
+    <div>
+      <div class="owner-name">{html.escape(owner)}</div>
+      <div class="owner-sub">{len(owner_df)} campaign{'s' if len(owner_df) != 1 else ''} assigned</div>
+    </div>
+    <div class="count-pill">{len(owner_df)}</div>
+  </div>
+  {cards_html}
+</div>
+""".strip()
+
+                st.markdown(owner_html, unsafe_allow_html=True)
+
         else:
-            for _, row in filtered_df.iterrows():
-                render_campaign_card(row)
+            cards_html = "\n".join(campaign_card_html(row) for _, row in filtered_df.iterrows())
+            st.markdown(cards_html, unsafe_allow_html=True)
 
 with st.expander("Column Debug — use this to lock the right Monday column IDs", expanded=False):
     st.write("Detected mappings")
