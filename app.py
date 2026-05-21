@@ -24,8 +24,11 @@ APP_TIMEZONE = "Europe/London"
 BRAND_COLOURS = {
     "action network": {"bg": "#EAFBF2", "text": "#087443", "border": "#B7E5CC"},
     "vegasinsider": {"bg": "#FFF7DA", "text": "#8A6300", "border": "#F2C23A"},
+    "vegas insider": {"bg": "#FFF7DA", "text": "#8A6300", "border": "#F2C23A"},
     "canada sports betting": {"bg": "#FFF0F1", "text": "#B90719", "border": "#EF0D23"},
+    "csb": {"bg": "#FFF0F1", "text": "#B90719", "border": "#EF0D23"},
     "rotogrinders": {"bg": "#EFF8FF", "text": "#075985", "border": "#BAE6FD"},
+    "roto grinders": {"bg": "#EFF8FF", "text": "#075985", "border": "#BAE6FD"},
 }
 
 PRIORITY_COLOURS = {
@@ -38,7 +41,7 @@ COLUMN_ALIASES = {
     "owner": ["owner", "owners", "person", "people", "assigned", "assignee", "lead", "campaign owner"],
     "date": ["date", "due", "deadline", "key date", "publish", "publication", "launch", "live date", "outreach date"],
     "status": ["status", "campaign status", "progress", "state"],
-    "stage": ["stage", "phase", "workflow", "step", "campaign stage"],
+    "stage": ["stage", "phase", "workflow", "step", "campaign stage", "category"],
     "priority": ["priority", "urgency"],
     "brand": ["brand", "site", "property", "vertical"],
 }
@@ -61,7 +64,7 @@ st.markdown(
         .block-container {
             padding-top: 1.25rem;
             padding-bottom: 3rem;
-            max-width: 1280px;
+            max-width: 1320px;
         }
 
         .hero {
@@ -136,6 +139,40 @@ st.markdown(
             font-size: 13px;
         }
 
+        .people-panel {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 28px;
+            padding: 18px;
+            box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
+            position: sticky;
+            top: 18px;
+        }
+
+        .panel-kicker {
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: #94a3b8;
+            font-weight: 850;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
+        .panel-title {
+            font-size: 22px;
+            font-weight: 850;
+            letter-spacing: -0.04em;
+            color: #020617;
+            margin-bottom: 4px;
+        }
+
+        .panel-copy {
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+
         .section-kicker {
             text-transform: uppercase;
             letter-spacing: 0.18em;
@@ -146,11 +183,17 @@ st.markdown(
         }
 
         .section-title {
-            font-size: 26px;
+            font-size: 28px;
             font-weight: 850;
-            letter-spacing: -0.04em;
+            letter-spacing: -0.045em;
             color: #020617;
-            margin: 0 0 12px;
+            margin: 0 0 6px;
+        }
+
+        .section-sub {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 14px;
         }
 
         .owner-block {
@@ -269,9 +312,17 @@ st.markdown(
             border-right: 1px solid #e2e8f0;
         }
 
-        @media (max-width: 800px) {
+        div.stButton > button {
+            border-radius: 16px;
+            min-height: 46px;
+            font-weight: 800;
+            border: 1px solid #e2e8f0;
+        }
+
+        @media (max-width: 900px) {
             .hero { padding: 24px; border-radius: 24px; }
             .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .people-panel { position: static; }
         }
     </style>
     """,
@@ -304,10 +355,28 @@ def normalise(text: Any) -> str:
     return re.sub(r"\s+", " ", str(text or "").strip().lower())
 
 
+def clean_brand_name(value: str) -> str:
+    text = str(value or "").strip()
+
+    replacements = {
+        "Vegas Insider": "VegasInsider",
+        "VegasInsider": "VegasInsider",
+        "Action Network": "Action Network",
+        "Canada Sports Betting": "Canada Sports Betting",
+        "CA Sports Betting": "Canada Sports Betting",
+        "CSB": "Canada Sports Betting",
+        "Roto Grinders": "RotoGrinders",
+        "RotoGrinders": "RotoGrinders",
+    }
+
+    return replacements.get(text, text)
+
+
 def split_people(text: Any) -> List[str]:
     cleaned = str(text or "").strip()
     if not cleaned:
         return ["Unassigned"]
+
     people = [p.strip() for p in re.split(r",|;|\||\n", cleaned) if p.strip()]
     return people or [cleaned]
 
@@ -319,6 +388,7 @@ def london_today() -> date:
 def week_ranges(today: Optional[date] = None) -> Dict[str, Tuple[date, date]]:
     today = today or london_today()
     start_this_week = today - timedelta(days=today.weekday())
+
     return {
         "This Week": (start_this_week, start_this_week + timedelta(days=6)),
         "Next Week": (start_this_week + timedelta(days=7), start_this_week + timedelta(days=13)),
@@ -331,6 +401,7 @@ def classify_week(value: Optional[date]) -> str:
         return "No Date"
 
     ranges = week_ranges()
+
     for label, (start, end) in ranges.items():
         if start <= value <= end:
             return label
@@ -368,6 +439,7 @@ def parse_monday_date(text: Any, raw_value: Any = None) -> Optional[date]:
 def format_display_date(value: Optional[date]) -> str:
     if value is None or pd.isna(value):
         return "No date"
+
     return value.strftime("%a %d %b")
 
 
@@ -387,6 +459,7 @@ def style_for_priority(priority: str) -> Dict[str, str]:
 
 def badge(label: str, colours: Dict[str, str]) -> str:
     safe = html.escape(str(label or "—"))
+
     return (
         f'<span class="badge" style="background:{colours["bg"]}; '
         f'color:{colours["text"]}; border-color:{colours["border"]};">{safe}</span>'
@@ -599,6 +672,7 @@ def find_column_id(
     fallback_types: Optional[List[str]] = None,
 ) -> Optional[str]:
     explicit_id = str(explicit_id or "").strip()
+
     if explicit_id:
         return explicit_id
 
@@ -636,8 +710,9 @@ def get_column_value(item: Dict[str, Any], column_id: Optional[str]) -> Tuple[st
 
 def get_board_brand_map() -> Dict[str, str]:
     raw = get_secret("BOARD_BRANDS", {}) or {}
+
     try:
-        return {str(k): str(v) for k, v in dict(raw).items()}
+        return {str(k): clean_brand_name(str(v)) for k, v in dict(raw).items()}
     except Exception:
         return {}
 
@@ -704,7 +779,7 @@ def build_rows(
 
             owners = split_people(owner_text)
             parsed_date = parse_monday_date(date_text, date_raw)
-            brand = brand_text or board_brand_map.get(board_id) or board_name
+            brand = clean_brand_name(brand_text or board_brand_map.get(board_id) or board_name)
 
             rows.append(
                 {
@@ -742,15 +817,15 @@ def owner_universe(df: pd.DataFrame) -> List[str]:
         return []
 
     owners: List[str] = []
+
     for values in df["owners"]:
         owners.extend(values if isinstance(values, list) else split_people(values))
 
     return sorted(set(owners))
 
 
-def apply_filters(
+def filter_without_person(
     df: pd.DataFrame,
-    person: str,
     brand: str,
     week: str,
     statuses: List[str],
@@ -760,9 +835,6 @@ def apply_filters(
         return df
 
     filtered = df.copy()
-
-    if person != "All":
-        filtered = filtered[filtered["owners"].apply(lambda vals: person in vals)]
 
     if brand != "All":
         filtered = filtered[filtered["brand"] == brand]
@@ -776,12 +848,37 @@ def apply_filters(
         filtered = filtered[filtered["status"].isin(statuses)]
 
     query = search.strip().lower()
+
     if query:
         haystack_cols = ["campaign", "brand", "owners_display", "status", "stage", "priority", "group", "board_name"]
         haystack = filtered[haystack_cols].fillna("").astype(str).agg(" ".join, axis=1).str.lower()
         filtered = filtered[haystack.str.contains(re.escape(query), na=False)]
 
     return filtered.sort_values(["sort_date", "brand", "campaign"], na_position="last")
+
+
+def apply_person_filter(df: pd.DataFrame, person: str) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    if person == "All":
+        return df
+
+    return df[df["owners"].apply(lambda vals: person in vals)]
+
+
+def owner_counts(df: pd.DataFrame) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+
+    for _, row in df.iterrows():
+        owners = row.get("owners", [])
+        if not isinstance(owners, list):
+            owners = split_people(owners)
+
+        for owner in owners:
+            counts[owner] = counts.get(owner, 0) + 1
+
+    return counts
 
 
 # ============================================================
@@ -794,7 +891,7 @@ st.markdown(
         <div class="hero-pill">📌 Monday.com live dashboard</div>
         <h1 class="hero-title">Campaign Owner Dashboard</h1>
         <div class="hero-copy">
-            See what campaigns are assigned to each person across Action Network, VegasInsider,
+            Click a person on the left to see their assigned campaigns across Action Network, VegasInsider,
             Canada Sports Betting and RotoGrinders — filtered by this week, next week and beyond.
         </div>
     </div>
@@ -835,7 +932,13 @@ if not api_key:
         """
 MONDAY_API_KEY = "your_monday_api_token_here"
 MONDAY_API_VERSION = "2025-04"
-MONDAY_BOARD_IDS = ["1234567890", "9876543210"]
+
+MONDAY_BOARD_IDS = [
+  "6727663754",
+  "6727665427",
+  "7101616385",
+  "7077539299"
+]
         """.strip(),
         language="toml",
     )
@@ -873,7 +976,6 @@ if campaigns_df.empty:
         st.dataframe(columns_df, use_container_width=True, hide_index=True)
     st.stop()
 
-all_people = ["All"] + owner_universe(campaigns_df)
 all_brands = ["All"] + sorted(campaigns_df["brand"].dropna().astype(str).unique().tolist())
 all_statuses = sorted([s for s in campaigns_df["status"].dropna().astype(str).unique().tolist() if s and s != "—"])
 week_options = ["This Week", "Next Week", "Week After Next", "Later", "All Upcoming", "No Date", "Past"]
@@ -882,21 +984,33 @@ with st.sidebar:
     st.divider()
     st.header("🔎 Filters")
 
-    person_filter = st.selectbox("Person", all_people, index=0)
     brand_filter = st.selectbox("Brand", all_brands, index=0)
     week_filter = st.selectbox("Week", week_options, index=0)
     status_filter = st.multiselect("Status", all_statuses, default=[])
     search_filter = st.text_input("Search", placeholder="Campaign, owner, status, board...")
     view_mode = st.radio("View", ["Cards", "Table"], horizontal=True)
 
-filtered_df = apply_filters(
+base_filtered_df = filter_without_person(
     campaigns_df,
-    person=person_filter,
     brand=brand_filter,
     week=week_filter,
     statuses=status_filter,
     search=search_filter,
 )
+
+counts = owner_counts(base_filtered_df)
+people = sorted(counts.keys())
+
+if "selected_owner" not in st.session_state:
+    st.session_state.selected_owner = "All"
+
+valid_people = ["All"] + people
+
+if st.session_state.selected_owner not in valid_people:
+    st.session_state.selected_owner = "All"
+
+selected_owner = st.session_state.selected_owner
+filtered_df = apply_person_filter(base_filtered_df, selected_owner)
 
 ranges = week_ranges()
 range_caption = " · ".join(
@@ -915,7 +1029,7 @@ with metric_cols[1]:
 
 with metric_cols[2]:
     visible_people = owner_universe(filtered_df) if not filtered_df.empty else []
-    render_metric_card("Owners", len(visible_people), "people assigned")
+    render_metric_card("Owners", len(visible_people), "people in this view")
 
 with metric_cols[3]:
     high_count = filtered_df["priority"].astype(str).str.lower().eq("high").sum() if not filtered_df.empty else 0
@@ -923,10 +1037,7 @@ with metric_cols[3]:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-week_counts = campaigns_df.copy()
-
-if person_filter != "All":
-    week_counts = week_counts[week_counts["owners"].apply(lambda vals: person_filter in vals)]
+week_counts = apply_person_filter(campaigns_df, selected_owner)
 
 if brand_filter != "All":
     week_counts = week_counts[week_counts["brand"] == brand_filter]
@@ -934,67 +1045,114 @@ if brand_filter != "All":
 wk_cols = st.columns(4)
 
 for i, label in enumerate(["This Week", "Next Week", "Week After Next", "Later"]):
-    count = int((week_counts["week_bucket"] == label).sum())
+    count = int((week_counts["week_bucket"] == label).sum()) if not week_counts.empty else 0
     with wk_cols[i]:
-        st.metric(label, count, help="Count respects selected person/brand filters")
+        st.metric(label, count, help="Count respects selected person and brand filters")
 
-st.markdown(
-    f"""
-    <div class="section-kicker">Current view</div>
-    <div class="section-title">
-        {html.escape(person_filter)} · {html.escape(brand_filter)} · {html.escape(week_filter)}
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown("<br>", unsafe_allow_html=True)
 
-if filtered_df.empty:
-    st.info("No campaigns found for the current filters.")
-else:
-    if view_mode == "Table":
-        table_df = filtered_df[
-            [
-                "key_date_display",
-                "week_bucket",
-                "brand",
-                "campaign",
-                "owners_display",
-                "stage",
-                "status",
-                "priority",
-                "board_name",
-                "group",
-                "item_id",
-            ]
-        ].rename(
-            columns={
-                "key_date_display": "Key Date",
-                "week_bucket": "Week",
-                "brand": "Brand",
-                "campaign": "Campaign",
-                "owners_display": "Owner(s)",
-                "stage": "Stage",
-                "status": "Status",
-                "priority": "Priority",
-                "board_name": "Board",
-                "group": "Group",
-                "item_id": "Item ID",
-            }
-        )
+left_col, right_col = st.columns([1, 2.25], gap="large")
 
-        st.dataframe(table_df, use_container_width=True, hide_index=True, height=560)
+with left_col:
+    st.markdown(
+        """
+        <div class="people-panel">
+            <div class="panel-kicker">People</div>
+            <div class="panel-title">Assigned owners</div>
+            <div class="panel-copy">Click a person to load their campaigns on the right.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
+    all_label = f"{'✅ ' if selected_owner == 'All' else ''}All Campaigns · {len(base_filtered_df)}"
+
+    if st.button(
+        all_label,
+        key="person_all",
+        use_container_width=True,
+        type="primary" if selected_owner == "All" else "secondary",
+    ):
+        st.session_state.selected_owner = "All"
+        st.rerun()
+
+    if not people:
+        st.info("No assigned people found for the current filters.")
     else:
-        if person_filter == "All":
-            for owner in owner_universe(filtered_df):
-                owner_df = filtered_df[filtered_df["owners"].apply(lambda vals: owner in vals)]
+        for person in people:
+            count = counts.get(person, 0)
+            label = f"{'✅ ' if selected_owner == person else ''}{person} · {count}"
 
-                if owner_df.empty:
-                    continue
+            if st.button(
+                label,
+                key=f"person_{re.sub(r'[^a-zA-Z0-9_]+', '_', person)}",
+                use_container_width=True,
+                type="primary" if selected_owner == person else "secondary",
+            ):
+                st.session_state.selected_owner = person
+                st.rerun()
 
-                cards_html = "\n".join(campaign_card_html(row) for _, row in owner_df.iterrows())
+with right_col:
+    st.markdown(
+        f"""
+        <div class="section-kicker">Current view</div>
+        <div class="section-title">
+            {html.escape(selected_owner)} · {html.escape(brand_filter)} · {html.escape(week_filter)}
+        </div>
+        <div class="section-sub">
+            Showing {len(filtered_df)} campaign{'s' if len(filtered_df) != 1 else ''} after filters.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-                owner_html = f"""
+    if filtered_df.empty:
+        st.info("No campaigns found for the selected person and filters.")
+    else:
+        if view_mode == "Table":
+            table_df = filtered_df[
+                [
+                    "key_date_display",
+                    "week_bucket",
+                    "brand",
+                    "campaign",
+                    "owners_display",
+                    "stage",
+                    "status",
+                    "priority",
+                    "board_name",
+                    "group",
+                    "item_id",
+                ]
+            ].rename(
+                columns={
+                    "key_date_display": "Key Date",
+                    "week_bucket": "Week",
+                    "brand": "Brand",
+                    "campaign": "Campaign",
+                    "owners_display": "Owner(s)",
+                    "stage": "Stage",
+                    "status": "Status",
+                    "priority": "Priority",
+                    "board_name": "Board",
+                    "group": "Group",
+                    "item_id": "Item ID",
+                }
+            )
+
+            st.dataframe(table_df, use_container_width=True, hide_index=True, height=560)
+
+        else:
+            if selected_owner == "All":
+                for owner in owner_universe(filtered_df):
+                    owner_df = filtered_df[filtered_df["owners"].apply(lambda vals: owner in vals)]
+
+                    if owner_df.empty:
+                        continue
+
+                    cards_html = "\n".join(campaign_card_html(row) for _, row in owner_df.iterrows())
+
+                    owner_html = f"""
 <div class="owner-block">
   <div class="owner-header">
     <div>
@@ -1007,11 +1165,10 @@ else:
 </div>
 """.strip()
 
-                st.markdown(owner_html, unsafe_allow_html=True)
-
-        else:
-            cards_html = "\n".join(campaign_card_html(row) for _, row in filtered_df.iterrows())
-            st.markdown(cards_html, unsafe_allow_html=True)
+                    st.markdown(owner_html, unsafe_allow_html=True)
+            else:
+                cards_html = "\n".join(campaign_card_html(row) for _, row in filtered_df.iterrows())
+                st.markdown(cards_html, unsafe_allow_html=True)
 
 with st.expander("Column Debug — use this to lock the right Monday column IDs", expanded=False):
     st.write("Detected mappings")
