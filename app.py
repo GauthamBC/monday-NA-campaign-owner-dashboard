@@ -35,6 +35,8 @@ DEFAULT_BOARD_BRANDS = {
     "7077539299": "RotoGrinders",
 }
 
+BRAND_OPTIONS = ["All", "Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"]
+
 BRAND_COLOURS = {
     "action network": {"bg": "#EAFBF2", "text": "#087443", "border": "#B7E5CC"},
     "vegasinsider": {"bg": "#FFF7DA", "text": "#8A6300", "border": "#F2C23A"},
@@ -54,7 +56,7 @@ STATUS_COLOURS = {
     "live on site": {"bg": "#ECFEFF", "text": "#0E7490", "border": "#A5F3FC"},
 }
 
-COLUMN_ALIASES = {
+ALIASES = {
     "owner": ["owner", "owners", "person", "people", "assigned", "assignee", "lead", "campaign owner"],
     "date": ["date", "due", "deadline", "key date", "publish", "publication", "launch", "live date", "outreach date"],
     "status": ["status", "campaign status", "progress", "state"],
@@ -65,255 +67,247 @@ COLUMN_ALIASES = {
 
 
 # ============================================================
-# Page setup
+# Page setup + CSS
 # ============================================================
 
 st.set_page_config(
     page_title="Campaign Owner Dashboard",
     page_icon="📌",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(
     """
-    <style>
-        .block-container {
-            padding-top: 1.25rem;
-            padding-bottom: 3rem;
-            max-width: 1320px;
-        }
+<style>
+.block-container {
+    padding-top: 1.15rem;
+    padding-bottom: 3rem;
+    max-width: 1320px;
+}
 
-        .hero {
-            background: linear-gradient(135deg, #020617 0%, #111827 52%, #1e293b 100%);
-            color: white;
-            padding: 30px 32px;
-            border-radius: 28px;
-            box-shadow: 0 22px 60px rgba(15, 23, 42, 0.22);
-            border: 1px solid rgba(255,255,255,0.08);
-            margin-bottom: 22px;
-        }
+.hero {
+    background: linear-gradient(135deg, #020617 0%, #111827 52%, #1e293b 100%);
+    color: white;
+    padding: 30px 32px;
+    border-radius: 28px;
+    box-shadow: 0 22px 60px rgba(15, 23, 42, 0.22);
+    border: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 18px;
+}
 
-        .hero-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 7px 12px;
-            border-radius: 999px;
-            background: rgba(255,255,255,0.10);
-            border: 1px solid rgba(255,255,255,0.12);
-            color: #e2e8f0;
-            font-size: 13px;
-            font-weight: 800;
-            letter-spacing: 0.02em;
-            margin-bottom: 16px;
-        }
+.hero-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #e2e8f0;
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 16px;
+}
 
-        .hero-title {
-            font-size: clamp(32px, 5vw, 52px);
-            line-height: 1.02;
-            font-weight: 850;
-            letter-spacing: -0.055em;
-            margin: 0;
-        }
+.hero-title {
+    font-size: clamp(32px, 5vw, 52px);
+    line-height: 1.02;
+    font-weight: 850;
+    letter-spacing: -0.055em;
+    margin: 0;
+}
 
-        .hero-copy {
-            margin-top: 13px;
-            max-width: 820px;
-            color: #cbd5e1;
-            font-size: 16px;
-            line-height: 1.65;
-        }
+.hero-copy {
+    margin-top: 13px;
+    max-width: 840px;
+    color: #cbd5e1;
+    font-size: 16px;
+    line-height: 1.65;
+}
 
-        .people-panel {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 28px;
-            padding: 18px;
-            box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
-            position: sticky;
-            top: 18px;
-        }
+.filter-shell {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 24px;
+    padding: 18px 18px 8px;
+    margin-bottom: 22px;
+    box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
+}
 
-        .panel-kicker {
-            text-transform: uppercase;
-            letter-spacing: 0.18em;
-            color: #94a3b8;
-            font-weight: 850;
-            font-size: 11px;
-            margin-bottom: 4px;
-        }
+.filter-title,
+.section-kicker,
+.panel-kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: #94a3b8;
+    font-weight: 850;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
 
-        .panel-title {
-            font-size: 22px;
-            font-weight: 850;
-            letter-spacing: -0.04em;
-            color: #020617;
-            margin-bottom: 4px;
-        }
+.people-panel {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 28px;
+    padding: 18px;
+    box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
+    position: sticky;
+    top: 18px;
+}
 
-        .panel-copy {
-            font-size: 13px;
-            color: #64748b;
-            line-height: 1.5;
-            margin-bottom: 14px;
-        }
+.panel-title {
+    font-size: 22px;
+    font-weight: 850;
+    letter-spacing: -0.04em;
+    color: #020617;
+    margin-bottom: 4px;
+}
 
-        .section-kicker {
-            text-transform: uppercase;
-            letter-spacing: 0.18em;
-            color: #94a3b8;
-            font-weight: 850;
-            font-size: 12px;
-            margin-bottom: 4px;
-        }
+.panel-copy,
+.section-sub {
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
 
-        .section-title {
-            font-size: 30px;
-            font-weight: 850;
-            letter-spacing: -0.045em;
-            color: #020617;
-            margin: 0 0 6px;
-        }
+.section-title {
+    font-size: 30px;
+    font-weight: 850;
+    letter-spacing: -0.045em;
+    color: #020617;
+    margin: 0 0 6px;
+}
 
-        .section-sub {
-            color: #64748b;
-            font-size: 14px;
-            margin-bottom: 18px;
-        }
+.owner-block {
+    background: rgba(255,255,255,0.72);
+    border: 1px solid #e2e8f0;
+    border-radius: 28px;
+    padding: 18px;
+    margin-bottom: 18px;
+    box-shadow: 0 10px 34px rgba(15, 23, 42, 0.05);
+}
 
-        .owner-block {
-            background: rgba(255,255,255,0.72);
-            border: 1px solid #e2e8f0;
-            border-radius: 28px;
-            padding: 18px;
-            margin-bottom: 18px;
-            box-shadow: 0 10px 34px rgba(15, 23, 42, 0.05);
-        }
+.owner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 14px;
+}
 
-        .owner-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 14px;
-        }
+.owner-name {
+    font-size: 19px;
+    font-weight: 850;
+    letter-spacing: -0.03em;
+    color: #020617;
+    margin: 0;
+}
 
-        .owner-name {
-            font-size: 19px;
-            font-weight: 850;
-            letter-spacing: -0.03em;
-            color: #020617;
-            margin: 0;
-        }
+.owner-sub {
+    color: #64748b;
+    font-size: 13px;
+    margin-top: 3px;
+}
 
-        .owner-sub {
-            color: #64748b;
-            font-size: 13px;
-            margin-top: 3px;
-        }
+.count-pill {
+    background: #020617;
+    color: white;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 850;
+    white-space: nowrap;
+}
 
-        .count-pill {
-            background: #020617;
-            color: white;
-            border-radius: 999px;
-            padding: 6px 12px;
-            font-size: 13px;
-            font-weight: 850;
-            white-space: nowrap;
-        }
+.campaign-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 24px;
+    padding: 18px;
+    margin-bottom: 14px;
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
+}
 
-        .campaign-card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 24px;
-            padding: 18px;
-            margin-bottom: 14px;
-            box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
-        }
+.campaign-card:hover {
+    transform: translateY(-1px);
+    transition: 0.18s ease;
+    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.09);
+}
 
-        .campaign-card:hover {
-            transform: translateY(-1px);
-            transition: 0.18s ease;
-            box-shadow: 0 14px 36px rgba(15, 23, 42, 0.09);
-        }
+.badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
 
-        .badge-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
+.badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 850;
+    border: 1px solid transparent;
+    line-height: 1;
+}
 
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            border-radius: 999px;
-            padding: 5px 10px;
-            font-size: 12px;
-            font-weight: 850;
-            border: 1px solid transparent;
-            line-height: 1;
-        }
+.campaign-title {
+    font-size: 18px;
+    font-weight: 850;
+    letter-spacing: -0.025em;
+    color: #020617;
+    margin-bottom: 8px;
+}
 
-        .campaign-title {
-            font-size: 18px;
-            font-weight: 850;
-            letter-spacing: -0.025em;
-            color: #020617;
-            margin-bottom: 8px;
-        }
+.campaign-note {
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.55;
+    margin-bottom: 14px;
+}
 
-        .campaign-note {
-            color: #64748b;
-            font-size: 13px;
-            line-height: 1.55;
-            margin-bottom: 14px;
-        }
+.mini-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    background: #f8fafc;
+    border-radius: 18px;
+    padding: 12px;
+}
 
-        .mini-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 10px;
-            background: #f8fafc;
-            border-radius: 18px;
-            padding: 12px;
-        }
+.mini-label {
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 750;
+    margin-bottom: 3px;
+}
 
-        .mini-label {
-            color: #94a3b8;
-            font-size: 11px;
-            font-weight: 750;
-            margin-bottom: 3px;
-        }
+.mini-value {
+    color: #334155;
+    font-size: 13px;
+    font-weight: 850;
+    word-break: break-word;
+}
 
-        .mini-value {
-            color: #334155;
-            font-size: 13px;
-            font-weight: 850;
-            word-break: break-word;
-        }
+div.stButton > button {
+    border-radius: 16px;
+    min-height: 46px;
+    font-weight: 800;
+    border: 1px solid #e2e8f0;
+    text-align: left;
+    justify-content: flex-start;
+}
 
-        div[data-testid="stSidebar"] {
-            border-right: 1px solid #e2e8f0;
-        }
-
-        div.stButton > button {
-            border-radius: 16px;
-            min-height: 46px;
-            font-weight: 800;
-            border: 1px solid #e2e8f0;
-            text-align: left;
-            justify-content: flex-start;
-        }
-
-        @media (max-width: 900px) {
-            .hero { padding: 24px; border-radius: 24px; }
-            .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .people-panel { position: static; }
-        }
-    </style>
-    """,
+@media (max-width: 900px) {
+    .hero { padding: 24px; border-radius: 24px; }
+    .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .people-panel { position: static; }
+}
+</style>
+""",
     unsafe_allow_html=True,
 )
 
@@ -367,25 +361,13 @@ def clean_brand_name(value: str) -> str:
     if "roto" in lower:
         return "RotoGrinders"
 
-    replacements = {
-        "Vegas Insider": "VegasInsider",
-        "VegasInsider": "VegasInsider",
-        "Action Network": "Action Network",
-        "Canada Sports Betting": "Canada Sports Betting",
-        "CA Sports Betting": "Canada Sports Betting",
-        "CSB": "Canada Sports Betting",
-        "Roto Grinders": "RotoGrinders",
-        "RotoGrinders": "RotoGrinders",
-    }
-
-    return replacements.get(text, text)
+    return text
 
 
 def split_people(text: Any) -> List[str]:
     cleaned = str(text or "").strip()
     if not cleaned:
         return ["Unassigned"]
-
     people = [p.strip() for p in re.split(r",|;|\||\n", cleaned) if p.strip()]
     return people or [cleaned]
 
@@ -396,37 +378,27 @@ def london_today() -> date:
 
 def month_range(year: int, month: int) -> Tuple[date, date]:
     start = date(year, month, 1)
-
-    if month == 12:
-        next_month_start = date(year + 1, 1, 1)
-    else:
-        next_month_start = date(year, month + 1, 1)
-
-    end = next_month_start - timedelta(days=1)
-    return start, end
+    next_month_start = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+    return start, next_month_start - timedelta(days=1)
 
 
 def period_range(period: str, custom_start: Optional[date] = None, custom_end: Optional[date] = None) -> Tuple[date, date]:
     today = london_today()
-    start_this_week = today - timedelta(days=today.weekday())
+    week_start = today - timedelta(days=today.weekday())
 
     if period == "This Week":
-        return start_this_week, start_this_week + timedelta(days=6)
-
+        return week_start, week_start + timedelta(days=6)
     if period == "Next Week":
-        return start_this_week + timedelta(days=7), start_this_week + timedelta(days=13)
-
+        return week_start + timedelta(days=7), week_start + timedelta(days=13)
     if period == "This Month":
         return month_range(today.year, today.month)
-
     if period == "Next Month":
-        next_month_seed = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
-        return month_range(next_month_seed.year, next_month_seed.month)
-
+        seed = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
+        return month_range(seed.year, seed.month)
     if custom_start and custom_end:
         return min(custom_start, custom_end), max(custom_start, custom_end)
 
-    return start_this_week, start_this_week + timedelta(days=6)
+    return week_start, week_start + timedelta(days=6)
 
 
 def parse_monday_date(text: Any, raw_value: Any = None) -> Optional[date]:
@@ -456,27 +428,19 @@ def parse_monday_date(text: Any, raw_value: Any = None) -> Optional[date]:
 def format_display_date(value: Optional[date]) -> str:
     if value is None or pd.isna(value):
         return "No date"
-
     return value.strftime("%a %d %b")
 
 
 def style_for_brand(brand: str) -> Dict[str, str]:
-    return BRAND_COLOURS.get(
-        normalise(brand),
-        {"bg": "#F1F5F9", "text": "#334155", "border": "#CBD5E1"},
-    )
+    return BRAND_COLOURS.get(normalise(brand), {"bg": "#F1F5F9", "text": "#334155", "border": "#CBD5E1"})
 
 
 def style_for_status(status: str) -> Dict[str, str]:
-    return STATUS_COLOURS.get(
-        normalise(status),
-        {"bg": "#F8FAFC", "text": "#475569", "border": "#CBD5E1"},
-    )
+    return STATUS_COLOURS.get(normalise(status), {"bg": "#F8FAFC", "text": "#475569", "border": "#CBD5E1"})
 
 
 def badge(label: str, colours: Dict[str, str]) -> str:
     safe = html.escape(str(label or "—"))
-
     return (
         f'<span class="badge" style="background:{colours["bg"]}; '
         f'color:{colours["text"]}; border-color:{colours["border"]};">{safe}</span>'
@@ -484,14 +448,11 @@ def badge(label: str, colours: Dict[str, str]) -> str:
 
 
 def campaign_card_html(row: pd.Series) -> str:
-    brand_colours = style_for_brand(row.get("brand", ""))
-    status_colours = style_for_status(row.get("status", ""))
-
     return f"""
 <div class="campaign-card">
   <div class="badge-row">
-    {badge(row.get("brand", "—"), brand_colours)}
-    {badge(str(row.get("status", "—")), status_colours)}
+    {badge(row.get("brand", "—"), style_for_brand(row.get("brand", "")))}
+    {badge(str(row.get("status", "—")), style_for_status(row.get("status", "")))}
     {badge(str(row.get("key_date_display", "No date")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
   </div>
 
@@ -591,24 +552,13 @@ query {
 """
 
 
-def monday_graphql(
-    api_key: str,
-    api_version: str,
-    query: str,
-    variables: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+def monday_graphql(api_key: str, api_version: str, query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     headers = {
         "Authorization": api_key,
         "Content-Type": "application/json",
         "API-Version": api_version,
     }
-
-    response = requests.post(
-        MONDAY_API_URL,
-        headers=headers,
-        json={"query": query, "variables": variables or {}},
-        timeout=45,
-    )
+    response = requests.post(MONDAY_API_URL, headers=headers, json={"query": query, "variables": variables or {}}, timeout=45)
 
     if response.status_code != 200:
         raise RuntimeError(f"Monday API HTTP {response.status_code}: {response.text[:800]}")
@@ -644,9 +594,9 @@ def fetch_monday_boards(api_key: str, api_version: str, board_ids: Tuple[str, ..
             continue
 
         board = board_list[0]
-        items_page = board.get("items_page") or {}
-        all_items = list(items_page.get("items") or [])
-        cursor = items_page.get("cursor")
+        page = board.get("items_page") or {}
+        all_items = list(page.get("items") or [])
+        cursor = page.get("cursor")
 
         while cursor:
             next_data = monday_graphql(
@@ -701,15 +651,15 @@ def find_column_id(
     return None
 
 
-def get_column_value(item: Dict[str, Any], column_id: Optional[str]) -> Tuple[str, Any, str]:
+def get_column_value(item: Dict[str, Any], column_id: Optional[str]) -> Tuple[str, Any]:
     if not column_id:
-        return "", None, ""
+        return "", None
 
     for col in item.get("column_values", []) or []:
         if str(col.get("id")) == str(column_id):
-            return col.get("text") or "", col.get("value"), col.get("type") or ""
+            return col.get("text") or "", col.get("value")
 
-    return "", None, ""
+    return "", None
 
 
 def get_board_brand_map() -> Dict[str, str]:
@@ -724,10 +674,7 @@ def get_board_brand_map() -> Dict[str, str]:
     return mapping
 
 
-def build_rows(
-    boards: List[Dict[str, Any]],
-    board_brand_map: Dict[str, str],
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def build_rows(boards: List[Dict[str, Any]], board_brand_map: Dict[str, str]) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     rows: List[Dict[str, Any]] = []
     column_debug: List[Dict[str, Any]] = []
     mapping_debug: List[Dict[str, Any]] = []
@@ -755,12 +702,12 @@ def build_rows(
                 }
             )
 
-        owner_col = find_column_id(columns, explicit_owner_id, COLUMN_ALIASES["owner"], ["people", "person"])
-        date_col = find_column_id(columns, explicit_date_id, COLUMN_ALIASES["date"], ["date", "timeline"])
-        status_col = find_column_id(columns, explicit_status_id, COLUMN_ALIASES["status"], ["status"])
-        stage_col = find_column_id(columns, explicit_stage_id, COLUMN_ALIASES["stage"], ["dropdown", "status"])
-        priority_col = find_column_id(columns, explicit_priority_id, COLUMN_ALIASES["priority"], ["status", "dropdown"])
-        brand_col = find_column_id(columns, explicit_brand_id, COLUMN_ALIASES["brand"], ["dropdown", "status"])
+        owner_col = find_column_id(columns, explicit_owner_id, ALIASES["owner"], ["people", "person"])
+        date_col = find_column_id(columns, explicit_date_id, ALIASES["date"], ["date", "timeline"])
+        status_col = find_column_id(columns, explicit_status_id, ALIASES["status"], ["status"])
+        stage_col = find_column_id(columns, explicit_stage_id, ALIASES["stage"], ["dropdown", "status"])
+        priority_col = find_column_id(columns, explicit_priority_id, ALIASES["priority"], ["status", "dropdown"])
+        brand_col = find_column_id(columns, explicit_brand_id, ALIASES["brand"], ["dropdown", "status"])
 
         mapping_debug.append(
             {
@@ -777,12 +724,12 @@ def build_rows(
         )
 
         for item in board.get("items", []) or []:
-            owner_text, _, _ = get_column_value(item, owner_col)
-            date_text, date_raw, _ = get_column_value(item, date_col)
-            status_text, _, _ = get_column_value(item, status_col)
-            stage_text, _, _ = get_column_value(item, stage_col)
-            priority_text, _, _ = get_column_value(item, priority_col)
-            brand_text, _, _ = get_column_value(item, brand_col)
+            owner_text, _ = get_column_value(item, owner_col)
+            date_text, date_raw = get_column_value(item, date_col)
+            status_text, _ = get_column_value(item, status_col)
+            stage_text, _ = get_column_value(item, stage_col)
+            priority_text, _ = get_column_value(item, priority_col)
+            brand_text, _ = get_column_value(item, brand_col)
 
             owners = split_people(owner_text)
             parsed_date = parse_monday_date(date_text, date_raw)
@@ -830,21 +777,13 @@ def owner_universe(df: pd.DataFrame) -> List[str]:
     return sorted(set(owners))
 
 
-def apply_base_filters(
-    df: pd.DataFrame,
-    start_date: date,
-    end_date: date,
-    brand: str,
-) -> pd.DataFrame:
+def apply_base_filters(df: pd.DataFrame, start_date: date, end_date: date, brand: str) -> pd.DataFrame:
     if df.empty:
         return df
 
     filtered = df.copy()
-
     filtered = filtered[
-        filtered["key_date"].apply(
-            lambda d: d is not None and not pd.isna(d) and start_date <= d <= end_date
-        )
+        filtered["key_date"].apply(lambda d: d is not None and not pd.isna(d) and start_date <= d <= end_date)
     ]
 
     if brand != "All":
@@ -854,10 +793,7 @@ def apply_base_filters(
 
 
 def apply_person_filter(df: pd.DataFrame, person: str) -> pd.DataFrame:
-    if df.empty:
-        return df
-
-    if person == "All":
+    if df.empty or person == "All":
         return df
 
     return df[df["owners"].apply(lambda vals: person in vals)]
@@ -888,15 +824,14 @@ def safe_button_key(prefix: str, value: str) -> str:
 
 st.markdown(
     """
-    <div class="hero">
-        <div class="hero-pill">📌 Monday.com live dashboard</div>
-        <h1 class="hero-title">Campaign Owner Dashboard</h1>
-        <div class="hero-copy">
-            Click a person on the left to see their assigned campaigns across Action Network, VegasInsider,
-            Canada Sports Betting and RotoGrinders.
-        </div>
-    </div>
-    """,
+<div class="hero">
+  <div class="hero-pill">📌 Monday.com live dashboard</div>
+  <h1 class="hero-title">Campaign Owner Dashboard</h1>
+  <div class="hero-copy">
+    Choose a date range and brand, then click a person to see their assigned campaigns.
+  </div>
+</div>
+""",
     unsafe_allow_html=True,
 )
 
@@ -904,33 +839,41 @@ api_key = get_monday_api_key()
 api_version = str(get_secret("MONDAY_API_VERSION", DEFAULT_API_VERSION) or DEFAULT_API_VERSION).strip()
 secret_board_ids = to_clean_list(get_secret("MONDAY_BOARD_IDS", [])) or DEFAULT_BOARD_IDS
 
-with st.sidebar:
-    st.header("Filters")
+# Visible filters on main page.
+st.markdown('<div class="filter-shell"><div class="filter-title">Filters</div>', unsafe_allow_html=True)
 
+filter_cols = st.columns([1.2, 1.2, 1.8], gap="medium")
+
+with filter_cols[0]:
     period_filter = st.selectbox(
         "Date range",
         ["This Week", "Next Week", "This Month", "Next Month", "Custom"],
         index=0,
+        key="period_filter",
     )
 
+with filter_cols[1]:
     brand_filter = st.selectbox(
         "Brand",
-        ["All", "Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"],
+        BRAND_OPTIONS,
         index=0,
+        key="brand_filter",
     )
 
-    custom_start: Optional[date] = None
-    custom_end: Optional[date] = None
+custom_start: Optional[date] = None
+custom_end: Optional[date] = None
 
+with filter_cols[2]:
     if period_filter == "Custom":
         today = london_today()
         default_start = today - timedelta(days=today.weekday())
         default_end = default_start + timedelta(days=6)
 
         custom_value = st.date_input(
-            "Custom range",
+            "Custom date range",
             value=(default_start, default_end),
             format="DD/MM/YYYY",
+            key="custom_range",
         )
 
         if isinstance(custom_value, tuple) and len(custom_value) == 2:
@@ -938,29 +881,34 @@ with st.sidebar:
         elif isinstance(custom_value, date):
             custom_start = custom_value
             custom_end = custom_value
+    else:
+        st.text_input("Selected range", value="Auto-calculated from today", disabled=True)
 
-    selected_start, selected_end = period_range(period_filter, custom_start, custom_end)
+selected_start, selected_end = period_range(period_filter, custom_start, custom_end)
 
-    with st.expander("Setup", expanded=False):
-        if api_key:
-            st.success("Monday API key loaded")
-        else:
-            st.error("Missing Monday API key")
+st.caption(f"Showing: {selected_start.strftime('%d %b %Y')}–{selected_end.strftime('%d %b %Y')}")
+st.markdown("</div>", unsafe_allow_html=True)
 
-        st.caption(f"API version: `{api_version}`")
+with st.expander("Setup / debug", expanded=False):
+    if api_key:
+        st.success("Monday API key loaded")
+    else:
+        st.error("Missing Monday API key")
 
-        board_ids_text = st.text_area(
-            "Board IDs",
-            value="\n".join(secret_board_ids),
-            help="Use one board ID per line. These can also sit in MONDAY_BOARD_IDS inside Streamlit secrets.",
-            height=105,
-        )
+    st.caption(f"API version: `{api_version}`")
 
-        board_ids = tuple(to_clean_list(board_ids_text))
+    board_ids_text = st.text_area(
+        "Board IDs",
+        value="\n".join(secret_board_ids),
+        help="Use one board ID per line. These can also sit in MONDAY_BOARD_IDS inside Streamlit secrets.",
+        height=105,
+    )
 
-        if st.button("Refresh Monday data", use_container_width=True):
-            st.cache_data.clear()
-            st.rerun()
+    board_ids = tuple(to_clean_list(board_ids_text))
+
+    if st.button("Refresh Monday data", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
 
 if not api_key:
     st.info("Add your Monday API token to Streamlit secrets, then rerun the app.")
@@ -987,7 +935,7 @@ if not board_ids:
                 st.info("No boards were returned for this token.")
             else:
                 st.dataframe(boards_df, use_container_width=True, hide_index=True)
-                st.caption("Copy the board IDs you need into the sidebar or MONDAY_BOARD_IDS in secrets.")
+                st.caption("Copy the board IDs you need into MONDAY_BOARD_IDS in secrets.")
         except Exception as exc:
             st.error("Could not list boards with this API key.")
             st.code(str(exc))
@@ -1035,15 +983,15 @@ left_col, right_col = st.columns([1, 2.25], gap="large")
 with left_col:
     st.markdown(
         f"""
-        <div class="people-panel">
-            <div class="panel-kicker">People</div>
-            <div class="panel-title">Assigned owners</div>
-            <div class="panel-copy">
-                {html.escape(period_filter)} · {selected_start.strftime('%d %b')}–{selected_end.strftime('%d %b')}<br>
-                {html.escape(brand_filter)}
-            </div>
-        </div>
-        """,
+<div class="people-panel">
+  <div class="panel-kicker">People</div>
+  <div class="panel-title">Assigned owners</div>
+  <div class="panel-copy">
+    {html.escape(period_filter)} · {selected_start.strftime('%d %b')}–{selected_end.strftime('%d %b')}<br>
+    {html.escape(brand_filter)}
+  </div>
+</div>
+""",
         unsafe_allow_html=True,
     )
 
@@ -1077,16 +1025,14 @@ with left_col:
 with right_col:
     st.markdown(
         f"""
-        <div class="section-kicker">Current view</div>
-        <div class="section-title">
-            {html.escape(selected_owner)}
-        </div>
-        <div class="section-sub">
-            {html.escape(brand_filter)} · {html.escape(period_filter)}
-            · {selected_start.strftime('%d %b')}–{selected_end.strftime('%d %b')}
-            · Showing {len(filtered_df)} campaign{'s' if len(filtered_df) != 1 else ''}
-        </div>
-        """,
+<div class="section-kicker">Current view</div>
+<div class="section-title">{html.escape(selected_owner)}</div>
+<div class="section-sub">
+  {html.escape(brand_filter)} · {html.escape(period_filter)}
+  · {selected_start.strftime('%d %b')}–{selected_end.strftime('%d %b')}
+  · Showing {len(filtered_df)} campaign{'s' if len(filtered_df) != 1 else ''}
+</div>
+""",
         unsafe_allow_html=True,
     )
 
