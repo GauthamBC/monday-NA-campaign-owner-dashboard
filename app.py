@@ -21,20 +21,37 @@ DEFAULT_API_VERSION = "2025-04"
 PAGE_LIMIT = 500
 APP_TIMEZONE = "Europe/London"
 
+DEFAULT_BOARD_IDS = [
+    "6727663754",  # Vegas Insider
+    "6727665427",  # Action Network
+    "7101616385",  # Canada Sports Betting
+    "7077539299",  # Roto Grinders
+]
+
+DEFAULT_BOARD_BRANDS = {
+    "6727663754": "VegasInsider",
+    "6727665427": "Action Network",
+    "7101616385": "Canada Sports Betting",
+    "7077539299": "RotoGrinders",
+}
+
 BRAND_COLOURS = {
     "action network": {"bg": "#EAFBF2", "text": "#087443", "border": "#B7E5CC"},
     "vegasinsider": {"bg": "#FFF7DA", "text": "#8A6300", "border": "#F2C23A"},
     "vegas insider": {"bg": "#FFF7DA", "text": "#8A6300", "border": "#F2C23A"},
     "canada sports betting": {"bg": "#FFF0F1", "text": "#B90719", "border": "#EF0D23"},
+    "ca sports betting": {"bg": "#FFF0F1", "text": "#B90719", "border": "#EF0D23"},
     "csb": {"bg": "#FFF0F1", "text": "#B90719", "border": "#EF0D23"},
     "rotogrinders": {"bg": "#EFF8FF", "text": "#075985", "border": "#BAE6FD"},
     "roto grinders": {"bg": "#EFF8FF", "text": "#075985", "border": "#BAE6FD"},
 }
 
-PRIORITY_COLOURS = {
-    "high": {"bg": "#FFE4E6", "text": "#BE123C", "border": "#FDA4AF"},
-    "medium": {"bg": "#FEF3C7", "text": "#A16207", "border": "#FDE68A"},
-    "low": {"bg": "#F1F5F9", "text": "#475569", "border": "#CBD5E1"},
+STATUS_COLOURS = {
+    "done": {"bg": "#ECFDF5", "text": "#047857", "border": "#A7F3D0"},
+    "working on it": {"bg": "#EFF6FF", "text": "#1D4ED8", "border": "#BFDBFE"},
+    "outreach in progress": {"bg": "#F5F3FF", "text": "#6D28D9", "border": "#DDD6FE"},
+    "commissioned": {"bg": "#FEF3C7", "text": "#A16207", "border": "#FDE68A"},
+    "live on site": {"bg": "#ECFEFF", "text": "#0E7490", "border": "#A5F3FC"},
 }
 
 COLUMN_ALIASES = {
@@ -70,7 +87,7 @@ st.markdown(
         .hero {
             background: linear-gradient(135deg, #020617 0%, #111827 52%, #1e293b 100%);
             color: white;
-            padding: 32px;
+            padding: 30px 32px;
             border-radius: 28px;
             box-shadow: 0 22px 60px rgba(15, 23, 42, 0.22);
             border: 1px solid rgba(255,255,255,0.08);
@@ -89,11 +106,11 @@ st.markdown(
             font-size: 13px;
             font-weight: 800;
             letter-spacing: 0.02em;
-            margin-bottom: 18px;
+            margin-bottom: 16px;
         }
 
         .hero-title {
-            font-size: clamp(32px, 5vw, 54px);
+            font-size: clamp(32px, 5vw, 52px);
             line-height: 1.02;
             font-weight: 850;
             letter-spacing: -0.055em;
@@ -101,42 +118,11 @@ st.markdown(
         }
 
         .hero-copy {
-            margin-top: 14px;
+            margin-top: 13px;
             max-width: 820px;
             color: #cbd5e1;
             font-size: 16px;
             line-height: 1.65;
-        }
-
-        .metric-card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 22px;
-            padding: 18px 18px 16px;
-            box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
-            min-height: 122px;
-        }
-
-        .metric-label {
-            text-transform: uppercase;
-            color: #94a3b8;
-            letter-spacing: 0.15em;
-            font-size: 11px;
-            font-weight: 800;
-            margin-bottom: 7px;
-        }
-
-        .metric-value {
-            font-size: 34px;
-            font-weight: 850;
-            letter-spacing: -0.04em;
-            color: #020617;
-            margin-bottom: 3px;
-        }
-
-        .metric-helper {
-            color: #64748b;
-            font-size: 13px;
         }
 
         .people-panel {
@@ -183,7 +169,7 @@ st.markdown(
         }
 
         .section-title {
-            font-size: 28px;
+            font-size: 30px;
             font-weight: 850;
             letter-spacing: -0.045em;
             color: #020617;
@@ -193,7 +179,7 @@ st.markdown(
         .section-sub {
             color: #64748b;
             font-size: 14px;
-            margin-bottom: 14px;
+            margin-bottom: 18px;
         }
 
         .owner-block {
@@ -271,7 +257,7 @@ st.markdown(
         }
 
         .campaign-title {
-            font-size: 17px;
+            font-size: 18px;
             font-weight: 850;
             letter-spacing: -0.025em;
             color: #020617;
@@ -317,6 +303,8 @@ st.markdown(
             min-height: 46px;
             font-weight: 800;
             border: 1px solid #e2e8f0;
+            text-align: left;
+            justify-content: flex-start;
         }
 
         @media (max-width: 900px) {
@@ -341,6 +329,17 @@ def get_secret(name: str, default: Any = None) -> Any:
         return default
 
 
+def get_monday_api_key() -> str:
+    top_level = str(get_secret("MONDAY_API_KEY", "") or "").strip()
+    if top_level:
+        return top_level
+
+    try:
+        return str(st.secrets["monday"]["monday_api_token"] or "").strip()
+    except Exception:
+        return ""
+
+
 def to_clean_list(value: Any) -> List[str]:
     if value is None:
         return []
@@ -357,6 +356,16 @@ def normalise(text: Any) -> str:
 
 def clean_brand_name(value: str) -> str:
     text = str(value or "").strip()
+    lower = normalise(text)
+
+    if "vegas" in lower:
+        return "VegasInsider"
+    if "action" in lower:
+        return "Action Network"
+    if "canada" in lower or "ca sports" in lower or lower == "csb":
+        return "Canada Sports Betting"
+    if "roto" in lower:
+        return "RotoGrinders"
 
     replacements = {
         "Vegas Insider": "VegasInsider",
@@ -385,31 +394,39 @@ def london_today() -> date:
     return datetime.now(ZoneInfo(APP_TIMEZONE)).date()
 
 
-def week_ranges(today: Optional[date] = None) -> Dict[str, Tuple[date, date]]:
-    today = today or london_today()
+def month_range(year: int, month: int) -> Tuple[date, date]:
+    start = date(year, month, 1)
+
+    if month == 12:
+        next_month_start = date(year + 1, 1, 1)
+    else:
+        next_month_start = date(year, month + 1, 1)
+
+    end = next_month_start - timedelta(days=1)
+    return start, end
+
+
+def period_range(period: str, custom_start: Optional[date] = None, custom_end: Optional[date] = None) -> Tuple[date, date]:
+    today = london_today()
     start_this_week = today - timedelta(days=today.weekday())
 
-    return {
-        "This Week": (start_this_week, start_this_week + timedelta(days=6)),
-        "Next Week": (start_this_week + timedelta(days=7), start_this_week + timedelta(days=13)),
-        "Week After Next": (start_this_week + timedelta(days=14), start_this_week + timedelta(days=20)),
-    }
+    if period == "This Week":
+        return start_this_week, start_this_week + timedelta(days=6)
 
+    if period == "Next Week":
+        return start_this_week + timedelta(days=7), start_this_week + timedelta(days=13)
 
-def classify_week(value: Optional[date]) -> str:
-    if value is None or pd.isna(value):
-        return "No Date"
+    if period == "This Month":
+        return month_range(today.year, today.month)
 
-    ranges = week_ranges()
+    if period == "Next Month":
+        next_month_seed = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
+        return month_range(next_month_seed.year, next_month_seed.month)
 
-    for label, (start, end) in ranges.items():
-        if start <= value <= end:
-            return label
+    if custom_start and custom_end:
+        return min(custom_start, custom_end), max(custom_start, custom_end)
 
-    if value > ranges["Week After Next"][1]:
-        return "Later"
-
-    return "Past"
+    return start_this_week, start_this_week + timedelta(days=6)
 
 
 def parse_monday_date(text: Any, raw_value: Any = None) -> Optional[date]:
@@ -450,9 +467,9 @@ def style_for_brand(brand: str) -> Dict[str, str]:
     )
 
 
-def style_for_priority(priority: str) -> Dict[str, str]:
-    return PRIORITY_COLOURS.get(
-        normalise(priority),
+def style_for_status(status: str) -> Dict[str, str]:
+    return STATUS_COLOURS.get(
+        normalise(status),
         {"bg": "#F8FAFC", "text": "#475569", "border": "#CBD5E1"},
     )
 
@@ -466,29 +483,16 @@ def badge(label: str, colours: Dict[str, str]) -> str:
     )
 
 
-def render_metric_card(label: str, value: Any, helper: str) -> None:
-    st.markdown(
-        f"""
-        <div class="metric-card">
-            <div class="metric-label">{html.escape(str(label))}</div>
-            <div class="metric-value">{html.escape(str(value))}</div>
-            <div class="metric-helper">{html.escape(str(helper))}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def campaign_card_html(row: pd.Series) -> str:
     brand_colours = style_for_brand(row.get("brand", ""))
-    priority_colours = style_for_priority(row.get("priority", ""))
+    status_colours = style_for_status(row.get("status", ""))
 
     return f"""
 <div class="campaign-card">
   <div class="badge-row">
     {badge(row.get("brand", "—"), brand_colours)}
-    {badge(str(row.get("week_bucket", "—")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
-    {badge(str(row.get("priority", "—")), priority_colours)}
+    {badge(str(row.get("status", "—")), status_colours)}
+    {badge(str(row.get("key_date_display", "No date")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
   </div>
 
   <div class="campaign-title">{html.escape(str(row.get("campaign", "Untitled campaign")))}</div>
@@ -504,7 +508,7 @@ def campaign_card_html(row: pd.Series) -> str:
       <div class="mini-value">{html.escape(str(row.get("owners_display", "—")))}</div>
     </div>
     <div>
-      <div class="mini-label">Stage</div>
+      <div class="mini-label">Category</div>
       <div class="mini-value">{html.escape(str(row.get("stage", "—")))}</div>
     </div>
     <div>
@@ -512,7 +516,7 @@ def campaign_card_html(row: pd.Series) -> str:
       <div class="mini-value">{html.escape(str(row.get("status", "—")))}</div>
     </div>
     <div>
-      <div class="mini-label">Key Date</div>
+      <div class="mini-label">Date</div>
       <div class="mini-value">{html.escape(str(row.get("key_date_display", "No date")))}</div>
     </div>
   </div>
@@ -709,12 +713,15 @@ def get_column_value(item: Dict[str, Any], column_id: Optional[str]) -> Tuple[st
 
 
 def get_board_brand_map() -> Dict[str, str]:
+    mapping = dict(DEFAULT_BOARD_BRANDS)
     raw = get_secret("BOARD_BRANDS", {}) or {}
 
     try:
-        return {str(k): clean_brand_name(str(v)) for k, v in dict(raw).items()}
+        mapping.update({str(k): clean_brand_name(str(v)) for k, v in dict(raw).items()})
     except Exception:
-        return {}
+        pass
+
+    return mapping
 
 
 def build_rows(
@@ -751,7 +758,7 @@ def build_rows(
         owner_col = find_column_id(columns, explicit_owner_id, COLUMN_ALIASES["owner"], ["people", "person"])
         date_col = find_column_id(columns, explicit_date_id, COLUMN_ALIASES["date"], ["date", "timeline"])
         status_col = find_column_id(columns, explicit_status_id, COLUMN_ALIASES["status"], ["status"])
-        stage_col = find_column_id(columns, explicit_stage_id, COLUMN_ALIASES["stage"], ["status", "dropdown"])
+        stage_col = find_column_id(columns, explicit_stage_id, COLUMN_ALIASES["stage"], ["dropdown", "status"])
         priority_col = find_column_id(columns, explicit_priority_id, COLUMN_ALIASES["priority"], ["status", "dropdown"])
         brand_col = find_column_id(columns, explicit_brand_id, COLUMN_ALIASES["brand"], ["dropdown", "status"])
 
@@ -805,7 +812,6 @@ def build_rows(
     map_df = pd.DataFrame(mapping_debug)
 
     if not df.empty:
-        df["week_bucket"] = df["key_date"].apply(classify_week)
         df["sort_date"] = pd.to_datetime(df["key_date"], errors="coerce")
         df = df.sort_values(["sort_date", "brand", "campaign"], na_position="last")
 
@@ -824,35 +830,25 @@ def owner_universe(df: pd.DataFrame) -> List[str]:
     return sorted(set(owners))
 
 
-def filter_without_person(
+def apply_base_filters(
     df: pd.DataFrame,
+    start_date: date,
+    end_date: date,
     brand: str,
-    week: str,
-    statuses: List[str],
-    search: str,
 ) -> pd.DataFrame:
     if df.empty:
         return df
 
     filtered = df.copy()
 
+    filtered = filtered[
+        filtered["key_date"].apply(
+            lambda d: d is not None and not pd.isna(d) and start_date <= d <= end_date
+        )
+    ]
+
     if brand != "All":
         filtered = filtered[filtered["brand"] == brand]
-
-    if week != "All Upcoming":
-        filtered = filtered[filtered["week_bucket"] == week]
-    else:
-        filtered = filtered[filtered["week_bucket"].isin(["This Week", "Next Week", "Week After Next", "Later"])]
-
-    if statuses:
-        filtered = filtered[filtered["status"].isin(statuses)]
-
-    query = search.strip().lower()
-
-    if query:
-        haystack_cols = ["campaign", "brand", "owners_display", "status", "stage", "priority", "group", "board_name"]
-        haystack = filtered[haystack_cols].fillna("").astype(str).agg(" ".join, axis=1).str.lower()
-        filtered = filtered[haystack.str.contains(re.escape(query), na=False)]
 
     return filtered.sort_values(["sort_date", "brand", "campaign"], na_position="last")
 
@@ -881,6 +877,11 @@ def owner_counts(df: pd.DataFrame) -> Dict[str, int]:
     return counts
 
 
+def safe_button_key(prefix: str, value: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9_]+", "_", value).strip("_")
+    return f"{prefix}_{cleaned or 'blank'}"
+
+
 # ============================================================
 # App
 # ============================================================
@@ -892,53 +893,85 @@ st.markdown(
         <h1 class="hero-title">Campaign Owner Dashboard</h1>
         <div class="hero-copy">
             Click a person on the left to see their assigned campaigns across Action Network, VegasInsider,
-            Canada Sports Betting and RotoGrinders — filtered by this week, next week and beyond.
+            Canada Sports Betting and RotoGrinders.
         </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-api_key = str(get_secret("MONDAY_API_KEY", "") or "").strip()
+api_key = get_monday_api_key()
 api_version = str(get_secret("MONDAY_API_VERSION", DEFAULT_API_VERSION) or DEFAULT_API_VERSION).strip()
-secret_board_ids = to_clean_list(get_secret("MONDAY_BOARD_IDS", []))
+secret_board_ids = to_clean_list(get_secret("MONDAY_BOARD_IDS", [])) or DEFAULT_BOARD_IDS
 
 with st.sidebar:
-    st.header("⚙️ Setup")
+    st.header("Filters")
 
-    if api_key:
-        st.success("Monday API key loaded from secrets")
-    else:
-        st.error("Missing MONDAY_API_KEY in Streamlit secrets")
-
-    st.caption(f"API version: `{api_version}`")
-
-    board_ids_text = st.text_area(
-        "Board IDs",
-        value="\n".join(secret_board_ids),
-        help="Use one board ID per line. You can also store these in MONDAY_BOARD_IDS inside Streamlit secrets.",
-        height=120,
+    period_filter = st.selectbox(
+        "Date range",
+        ["This Week", "Next Week", "This Month", "Next Month", "Custom"],
+        index=0,
     )
 
-    board_ids = tuple(to_clean_list(board_ids_text))
+    brand_filter = st.selectbox(
+        "Brand",
+        ["All", "Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"],
+        index=0,
+    )
 
-    if st.button("Refresh Monday data", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
+    custom_start: Optional[date] = None
+    custom_end: Optional[date] = None
+
+    if period_filter == "Custom":
+        today = london_today()
+        default_start = today - timedelta(days=today.weekday())
+        default_end = default_start + timedelta(days=6)
+
+        custom_value = st.date_input(
+            "Custom range",
+            value=(default_start, default_end),
+            format="DD/MM/YYYY",
+        )
+
+        if isinstance(custom_value, tuple) and len(custom_value) == 2:
+            custom_start, custom_end = custom_value
+        elif isinstance(custom_value, date):
+            custom_start = custom_value
+            custom_end = custom_value
+
+    selected_start, selected_end = period_range(period_filter, custom_start, custom_end)
+
+    with st.expander("Setup", expanded=False):
+        if api_key:
+            st.success("Monday API key loaded")
+        else:
+            st.error("Missing Monday API key")
+
+        st.caption(f"API version: `{api_version}`")
+
+        board_ids_text = st.text_area(
+            "Board IDs",
+            value="\n".join(secret_board_ids),
+            help="Use one board ID per line. These can also sit in MONDAY_BOARD_IDS inside Streamlit secrets.",
+            height=105,
+        )
+
+        board_ids = tuple(to_clean_list(board_ids_text))
+
+        if st.button("Refresh Monday data", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
 
 if not api_key:
     st.info("Add your Monday API token to Streamlit secrets, then rerun the app.")
     st.code(
         """
+# Preferred new format:
 MONDAY_API_KEY = "your_monday_api_token_here"
-MONDAY_API_VERSION = "2025-04"
 
-MONDAY_BOARD_IDS = [
-  "6727663754",
-  "6727665427",
-  "7101616385",
-  "7077539299"
-]
+# Your old format is also supported:
+[monday]
+monday_api_token = "your_monday_api_token_here"
         """.strip(),
         language="toml",
     )
@@ -976,26 +1009,11 @@ if campaigns_df.empty:
         st.dataframe(columns_df, use_container_width=True, hide_index=True)
     st.stop()
 
-all_brands = ["All"] + sorted(campaigns_df["brand"].dropna().astype(str).unique().tolist())
-all_statuses = sorted([s for s in campaigns_df["status"].dropna().astype(str).unique().tolist() if s and s != "—"])
-week_options = ["This Week", "Next Week", "Week After Next", "Later", "All Upcoming", "No Date", "Past"]
-
-with st.sidebar:
-    st.divider()
-    st.header("🔎 Filters")
-
-    brand_filter = st.selectbox("Brand", all_brands, index=0)
-    week_filter = st.selectbox("Week", week_options, index=0)
-    status_filter = st.multiselect("Status", all_statuses, default=[])
-    search_filter = st.text_input("Search", placeholder="Campaign, owner, status, board...")
-    view_mode = st.radio("View", ["Cards", "Table"], horizontal=True)
-
-base_filtered_df = filter_without_person(
+base_filtered_df = apply_base_filters(
     campaigns_df,
+    start_date=selected_start,
+    end_date=selected_end,
     brand=brand_filter,
-    week=week_filter,
-    statuses=status_filter,
-    search=search_filter,
 )
 
 counts = owner_counts(base_filtered_df)
@@ -1012,54 +1030,18 @@ if st.session_state.selected_owner not in valid_people:
 selected_owner = st.session_state.selected_owner
 filtered_df = apply_person_filter(base_filtered_df, selected_owner)
 
-ranges = week_ranges()
-range_caption = " · ".join(
-    f"{label}: {start.strftime('%d %b')}–{end.strftime('%d %b')}"
-    for label, (start, end) in ranges.items()
-)
-st.caption(range_caption)
-
-metric_cols = st.columns(4)
-
-with metric_cols[0]:
-    render_metric_card("Campaigns", len(filtered_df), "matching current filters")
-
-with metric_cols[1]:
-    render_metric_card("Brands", filtered_df["brand"].nunique() if not filtered_df.empty else 0, "active in this view")
-
-with metric_cols[2]:
-    visible_people = owner_universe(filtered_df) if not filtered_df.empty else []
-    render_metric_card("Owners", len(visible_people), "people in this view")
-
-with metric_cols[3]:
-    high_count = filtered_df["priority"].astype(str).str.lower().eq("high").sum() if not filtered_df.empty else 0
-    render_metric_card("High Priority", int(high_count), "needs closer tracking")
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-week_counts = apply_person_filter(campaigns_df, selected_owner)
-
-if brand_filter != "All":
-    week_counts = week_counts[week_counts["brand"] == brand_filter]
-
-wk_cols = st.columns(4)
-
-for i, label in enumerate(["This Week", "Next Week", "Week After Next", "Later"]):
-    count = int((week_counts["week_bucket"] == label).sum()) if not week_counts.empty else 0
-    with wk_cols[i]:
-        st.metric(label, count, help="Count respects selected person and brand filters")
-
-st.markdown("<br>", unsafe_allow_html=True)
-
 left_col, right_col = st.columns([1, 2.25], gap="large")
 
 with left_col:
     st.markdown(
-        """
+        f"""
         <div class="people-panel">
             <div class="panel-kicker">People</div>
             <div class="panel-title">Assigned owners</div>
-            <div class="panel-copy">Click a person to load their campaigns on the right.</div>
+            <div class="panel-copy">
+                {html.escape(period_filter)} · {selected_start.strftime('%d %b')}–{selected_end.strftime('%d %b')}<br>
+                {html.escape(brand_filter)}
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1077,7 +1059,7 @@ with left_col:
         st.rerun()
 
     if not people:
-        st.info("No assigned people found for the current filters.")
+        st.info("No assigned people found for the selected range/brand.")
     else:
         for person in people:
             count = counts.get(person, 0)
@@ -1085,7 +1067,7 @@ with left_col:
 
             if st.button(
                 label,
-                key=f"person_{re.sub(r'[^a-zA-Z0-9_]+', '_', person)}",
+                key=safe_button_key("person", person),
                 use_container_width=True,
                 type="primary" if selected_owner == person else "secondary",
             ):
@@ -1097,62 +1079,30 @@ with right_col:
         f"""
         <div class="section-kicker">Current view</div>
         <div class="section-title">
-            {html.escape(selected_owner)} · {html.escape(brand_filter)} · {html.escape(week_filter)}
+            {html.escape(selected_owner)}
         </div>
         <div class="section-sub">
-            Showing {len(filtered_df)} campaign{'s' if len(filtered_df) != 1 else ''} after filters.
+            {html.escape(brand_filter)} · {html.escape(period_filter)}
+            · {selected_start.strftime('%d %b')}–{selected_end.strftime('%d %b')}
+            · Showing {len(filtered_df)} campaign{'s' if len(filtered_df) != 1 else ''}
         </div>
         """,
         unsafe_allow_html=True,
     )
 
     if filtered_df.empty:
-        st.info("No campaigns found for the selected person and filters.")
+        st.info("No campaigns found for the selected person, brand and date range.")
     else:
-        if view_mode == "Table":
-            table_df = filtered_df[
-                [
-                    "key_date_display",
-                    "week_bucket",
-                    "brand",
-                    "campaign",
-                    "owners_display",
-                    "stage",
-                    "status",
-                    "priority",
-                    "board_name",
-                    "group",
-                    "item_id",
-                ]
-            ].rename(
-                columns={
-                    "key_date_display": "Key Date",
-                    "week_bucket": "Week",
-                    "brand": "Brand",
-                    "campaign": "Campaign",
-                    "owners_display": "Owner(s)",
-                    "stage": "Stage",
-                    "status": "Status",
-                    "priority": "Priority",
-                    "board_name": "Board",
-                    "group": "Group",
-                    "item_id": "Item ID",
-                }
-            )
+        if selected_owner == "All":
+            for owner in owner_universe(filtered_df):
+                owner_df = filtered_df[filtered_df["owners"].apply(lambda vals: owner in vals)]
 
-            st.dataframe(table_df, use_container_width=True, hide_index=True, height=560)
+                if owner_df.empty:
+                    continue
 
-        else:
-            if selected_owner == "All":
-                for owner in owner_universe(filtered_df):
-                    owner_df = filtered_df[filtered_df["owners"].apply(lambda vals: owner in vals)]
+                cards_html = "\n".join(campaign_card_html(row) for _, row in owner_df.iterrows())
 
-                    if owner_df.empty:
-                        continue
-
-                    cards_html = "\n".join(campaign_card_html(row) for _, row in owner_df.iterrows())
-
-                    owner_html = f"""
+                owner_html = f"""
 <div class="owner-block">
   <div class="owner-header">
     <div>
@@ -1165,10 +1115,10 @@ with right_col:
 </div>
 """.strip()
 
-                    st.markdown(owner_html, unsafe_allow_html=True)
-            else:
-                cards_html = "\n".join(campaign_card_html(row) for _, row in filtered_df.iterrows())
-                st.markdown(cards_html, unsafe_allow_html=True)
+                st.markdown(owner_html, unsafe_allow_html=True)
+        else:
+            cards_html = "\n".join(campaign_card_html(row) for _, row in filtered_df.iterrows())
+            st.markdown(cards_html, unsafe_allow_html=True)
 
 with st.expander("Column Debug — use this to lock the right Monday column IDs", expanded=False):
     st.write("Detected mappings")
@@ -1178,6 +1128,6 @@ with st.expander("Column Debug — use this to lock the right Monday column IDs"
     st.dataframe(columns_df, use_container_width=True, hide_index=True)
 
     st.caption(
-        "Once the detected mapping looks right, copy the relevant column IDs into Streamlit secrets "
-        "as OWNER_COLUMN_ID, DATE_COLUMN_ID, STATUS_COLUMN_ID, STAGE_COLUMN_ID, PRIORITY_COLUMN_ID and BRAND_COLUMN_ID."
+        "Copy the correct column IDs into Streamlit secrets as OWNER_COLUMN_ID, DATE_COLUMN_ID, "
+        "STATUS_COLUMN_ID, STAGE_COLUMN_ID, PRIORITY_COLUMN_ID and BRAND_COLUMN_ID."
     )
