@@ -79,7 +79,7 @@ st.markdown(
     <style>
         .block-container {
             padding-top: 1.15rem;
-            padding-bottom: 3rem;
+            padding-bottom: 2.25rem;
             max-width: 1320px;
         }
 
@@ -124,14 +124,13 @@ st.markdown(
             line-height: 1.65;
         }
 
-        .filter-panel {
+        .filter-header-card {
             background: white;
             border: 1px solid #e2e8f0;
-            border-radius: 28px;
-            padding: 20px;
+            border-radius: 24px;
+            padding: 18px 18px 16px;
             box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
-            position: sticky;
-            top: 18px;
+            margin-bottom: 14px;
         }
 
         .filter-kicker {
@@ -155,35 +154,70 @@ st.markdown(
             font-size: 13px;
             color: #64748b;
             line-height: 1.5;
-            margin-bottom: 14px;
         }
 
         .range-caption {
             color: #64748b;
-            font-size: 14px;
-            margin-top: 8px;
-            margin-bottom: 2px;
+            font-size: 13px;
+            line-height: 1.45;
+            margin-top: 12px;
+        }
+
+        .results-panel {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 28px;
+            box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
+            padding: 16px;
+            max-height: 760px;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+
+        .results-panel::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        .results-panel::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 999px;
+        }
+
+        .results-panel::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 999px;
+            border: 2px solid #f1f5f9;
+        }
+
+        .results-panel::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .results-inner {
+            min-width: 760px;
         }
 
         .owner-block {
-            background: rgba(255,255,255,0.72);
+            background: #ffffff;
             border: 1px solid #e2e8f0;
-            border-radius: 28px;
-            padding: 18px;
-            margin-bottom: 18px;
-            box-shadow: 0 10px 34px rgba(15, 23, 42, 0.05);
+            border-radius: 24px;
+            padding: 14px;
+            margin-bottom: 14px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
         }
 
         .owner-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 16px;
-            margin-bottom: 14px;
+            gap: 14px;
+            margin-bottom: 12px;
+            padding: 2px 2px 0;
         }
 
         .owner-name {
-            font-size: 19px;
+            font-size: 18px;
             font-weight: 850;
             letter-spacing: -0.03em;
             color: #020617;
@@ -193,88 +227,113 @@ st.markdown(
         .owner-sub {
             color: #64748b;
             font-size: 13px;
-            margin-top: 3px;
+            margin-top: 2px;
         }
 
         .count-pill {
             background: #020617;
             color: white;
             border-radius: 999px;
-            padding: 6px 12px;
-            font-size: 13px;
+            padding: 6px 11px;
+            font-size: 12px;
             font-weight: 850;
             white-space: nowrap;
         }
 
         .campaign-card {
-            background: white;
+            background: #ffffff;
             border: 1px solid #e2e8f0;
-            border-radius: 24px;
-            padding: 18px;
-            margin-bottom: 14px;
-            box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
+            border-radius: 20px;
+            padding: 14px;
+            margin-bottom: 10px;
+            box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
+        }
+
+        .campaign-card:last-child {
+            margin-bottom: 0;
         }
 
         .campaign-card:hover {
             transform: translateY(-1px);
-            transition: 0.18s ease;
-            box-shadow: 0 14px 36px rgba(15, 23, 42, 0.09);
+            transition: 0.16s ease;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+        }
+
+        .card-topline {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
         }
 
         .badge-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
+            gap: 7px;
+            margin-bottom: 10px;
         }
 
         .badge {
             display: inline-flex;
             align-items: center;
             border-radius: 999px;
-            padding: 5px 10px;
-            font-size: 12px;
+            padding: 4px 9px;
+            font-size: 11px;
             font-weight: 850;
             border: 1px solid transparent;
             line-height: 1;
+            white-space: nowrap;
         }
 
         .campaign-title {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 850;
-            letter-spacing: -0.025em;
+            letter-spacing: -0.02em;
             color: #020617;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+            line-height: 1.3;
         }
 
         .campaign-note {
             color: #64748b;
-            font-size: 13px;
-            line-height: 1.55;
-            margin-bottom: 14px;
+            font-size: 12px;
+            line-height: 1.45;
+            margin-bottom: 11px;
         }
 
         .mini-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 10px;
+            grid-template-columns: 1.15fr 0.85fr 0.95fr 0.75fr;
+            gap: 8px;
             background: #f8fafc;
-            border-radius: 18px;
-            padding: 12px;
+            border-radius: 15px;
+            padding: 10px;
         }
 
         .mini-label {
             color: #94a3b8;
-            font-size: 11px;
-            font-weight: 750;
-            margin-bottom: 3px;
+            font-size: 10px;
+            font-weight: 800;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
 
         .mini-value {
             color: #334155;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 850;
             word-break: break-word;
+            line-height: 1.35;
+        }
+
+        .empty-state {
+            border: 1px dashed #cbd5e1;
+            border-radius: 24px;
+            padding: 32px;
+            text-align: center;
+            color: #64748b;
+            background: #f8fafc;
         }
 
         div[data-testid="stSidebar"] {
@@ -282,9 +341,22 @@ st.markdown(
         }
 
         @media (max-width: 900px) {
-            .hero { padding: 24px; border-radius: 24px; }
-            .filter-panel { position: static; }
-            .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .hero {
+                padding: 24px;
+                border-radius: 24px;
+            }
+
+            .results-panel {
+                max-height: 680px;
+            }
+
+            .results-inner {
+                min-width: 680px;
+            }
+
+            .mini-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
     </style>
     """,
@@ -800,6 +872,55 @@ def apply_person_filter(df: pd.DataFrame, person: str) -> pd.DataFrame:
     return df[df["owners"].apply(lambda vals: person in vals)]
 
 
+def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
+    if filtered_df.empty:
+        return """
+        <div class="results-panel">
+          <div class="results-inner">
+            <div class="empty-state">No campaigns found for the selected owner, brand and date range.</div>
+          </div>
+        </div>
+        """.strip()
+
+    if owner_filter == "All":
+        blocks: List[str] = []
+
+        for owner in owner_universe(filtered_df):
+            owner_df = filtered_df[filtered_df["owners"].apply(lambda vals: owner in vals)]
+
+            if owner_df.empty:
+                continue
+
+            cards_html = "\n".join(campaign_card_html(row) for _, row in owner_df.iterrows())
+
+            blocks.append(
+                f"""
+                <div class="owner-block">
+                  <div class="owner-header">
+                    <div>
+                      <div class="owner-name">{html.escape(owner)}</div>
+                      <div class="owner-sub">{len(owner_df)} campaign{'s' if len(owner_df) != 1 else ''} assigned</div>
+                    </div>
+                    <div class="count-pill">{len(owner_df)}</div>
+                  </div>
+                  {cards_html}
+                </div>
+                """.strip()
+            )
+
+        content = "\n".join(blocks)
+    else:
+        content = "\n".join(campaign_card_html(row) for _, row in filtered_df.iterrows())
+
+    return f"""
+    <div class="results-panel">
+      <div class="results-inner">
+        {content}
+      </div>
+    </div>
+    """.strip()
+
+
 # ============================================================
 # APP
 # ============================================================
@@ -810,7 +931,7 @@ st.markdown(
         <div class="hero-pill">📌 Monday.com live dashboard</div>
         <h1 class="hero-title">Campaign Owner Dashboard</h1>
         <div class="hero-copy">
-            Choose a date range, brand and owner to see assigned campaigns.
+            Choose a date range, brand and owner to see assigned campaigns in a compact weekly view.
         </div>
     </div>
     """,
@@ -843,7 +964,7 @@ main_left, main_right = st.columns([1, 2.25], gap="large")
 with main_left:
     st.markdown(
         """
-        <div class="filter-panel">
+        <div class="filter-header-card">
             <div class="filter-kicker">Dashboard</div>
             <div class="filter-title">Campaign Owner Dashboard</div>
             <div class="filter-sub">Choose your range, brand and owner.</div>
@@ -917,32 +1038,7 @@ with main_left:
 filtered_df = apply_person_filter(base_filtered_df, owner_filter)
 
 with main_right:
-    if filtered_df.empty:
-        st.info("No campaigns found for the selected owner, brand and date range.")
-    else:
-        if owner_filter == "All":
-            for owner in owner_universe(filtered_df):
-                owner_df = filtered_df[filtered_df["owners"].apply(lambda vals: owner in vals)]
-
-                if owner_df.empty:
-                    continue
-
-                cards_html = "\n".join(campaign_card_html(row) for _, row in owner_df.iterrows())
-
-                owner_html = f"""
-<div class="owner-block">
-  <div class="owner-header">
-    <div>
-      <div class="owner-name">{html.escape(owner)}</div>
-      <div class="owner-sub">{len(owner_df)} campaign{'s' if len(owner_df) != 1 else ''} assigned</div>
-    </div>
-    <div class="count-pill">{len(owner_df)}</div>
-  </div>
-  {cards_html}
-</div>
-""".strip()
-
-                st.markdown(owner_html, unsafe_allow_html=True)
-        else:
-            cards_html = "\n".join(campaign_card_html(row) for _, row in filtered_df.iterrows())
-            st.markdown(cards_html, unsafe_allow_html=True)
+    st.markdown(
+        build_results_html(filtered_df, owner_filter),
+        unsafe_allow_html=True,
+    )
