@@ -90,7 +90,7 @@ st.markdown(
             border-radius: 28px;
             box-shadow: 0 22px 60px rgba(15, 23, 42, 0.22);
             border: 1px solid rgba(255,255,255,0.08);
-            margin-bottom: 22px;
+            margin-bottom: 24px;
         }
 
         .hero-pill {
@@ -124,14 +124,45 @@ st.markdown(
             line-height: 1.65;
         }
 
+        .filter-panel {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 28px;
+            padding: 20px;
+            box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
+            position: sticky;
+            top: 18px;
+        }
+
+        .filter-kicker {
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: #94a3b8;
+            font-weight: 850;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
+        .filter-title {
+            font-size: 24px;
+            font-weight: 850;
+            letter-spacing: -0.04em;
+            color: #020617;
+            margin-bottom: 6px;
+        }
+
+        .filter-sub {
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+
         .range-caption {
             color: #64748b;
             font-size: 14px;
-            margin: -2px 0 24px 0;
-        }
-
-        .blank-left-space {
-            min-height: 420px;
+            margin-top: 8px;
+            margin-bottom: 2px;
         }
 
         .owner-block {
@@ -252,8 +283,8 @@ st.markdown(
 
         @media (max-width: 900px) {
             .hero { padding: 24px; border-radius: 24px; }
+            .filter-panel { position: static; }
             .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .blank-left-space { display: none; }
         }
     </style>
     """,
@@ -388,7 +419,6 @@ def parse_monday_date(text: Any, raw_value: Any = None) -> Optional[date]:
     if raw_value:
         try:
             parsed_value = json.loads(raw_value) if isinstance(raw_value, str) else raw_value
-
             if isinstance(parsed_value, dict):
                 for key in ["date", "from", "to"]:
                     if parsed_value.get(key):
@@ -398,7 +428,6 @@ def parse_monday_date(text: Any, raw_value: Any = None) -> Optional[date]:
 
     for candidate in candidates:
         parsed = pd.to_datetime(candidate, errors="coerce", dayfirst=False)
-
         if not pd.isna(parsed):
             return parsed.date()
 
@@ -428,7 +457,6 @@ def style_for_status(status: str) -> Dict[str, str]:
 
 def badge(label: str, colours: Dict[str, str]) -> str:
     safe = html.escape(str(label or "—"))
-
     return (
         f'<span class="badge" style="background:{colours["bg"]}; '
         f'color:{colours["text"]}; border-color:{colours["border"]};">{safe}</span>'
@@ -581,7 +609,6 @@ def fetch_monday_boards(
         )
 
         board_list = data.get("boards", [])
-
         if not board_list:
             continue
 
@@ -627,19 +654,16 @@ def find_column_id(
 
     for col in columns:
         title = normalise(col.get("title"))
-
         if title in alias_set:
             return str(col.get("id"))
 
     for col in columns:
         title = normalise(col.get("title"))
-
         if any(alias in title for alias in alias_set):
             return str(col.get("id"))
 
     if fallback_types:
         type_set = {normalise(t) for t in fallback_types}
-
         for col in columns:
             if normalise(col.get("type")) in type_set:
                 return str(col.get("id"))
@@ -814,9 +838,20 @@ if campaigns_df.empty:
     st.warning("No campaign items were returned from the selected Monday boards.")
     st.stop()
 
-filter_col_1, filter_col_2, filter_col_3 = st.columns([1, 1, 1], gap="medium")
+main_left, main_right = st.columns([1, 2.25], gap="large")
 
-with filter_col_1:
+with main_left:
+    st.markdown(
+        """
+        <div class="filter-panel">
+            <div class="filter-kicker">Filters</div>
+            <div class="filter-title">Campaign filters</div>
+            <div class="filter-sub">Choose your range, brand and owner.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     period_filter = st.selectbox(
         "Date range",
         ["This Week", "Next Week", "This Month", "Next Month", "Custom"],
@@ -824,21 +859,10 @@ with filter_col_1:
         key="period_filter",
     )
 
-with filter_col_2:
-    brand_filter = st.selectbox(
-        "Brand",
-        ["All", "Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"],
-        index=0,
-        key="brand_filter",
-    )
+    custom_start: Optional[date] = None
+    custom_end: Optional[date] = None
 
-custom_start: Optional[date] = None
-custom_end: Optional[date] = None
-
-if period_filter == "Custom":
-    custom_col_1, custom_col_2 = st.columns([1, 2], gap="medium")
-
-    with custom_col_1:
+    if period_filter == "Custom":
         today = london_today()
         default_start = today - timedelta(days=today.weekday())
         default_end = default_start + timedelta(days=6)
@@ -856,18 +880,24 @@ if period_filter == "Custom":
             custom_start = custom_value
             custom_end = custom_value
 
-selected_start, selected_end = period_range(period_filter, custom_start, custom_end)
+    selected_start, selected_end = period_range(period_filter, custom_start, custom_end)
 
-base_filtered_df = apply_base_filters(
-    campaigns_df,
-    start_date=selected_start,
-    end_date=selected_end,
-    brand=brand_filter,
-)
+    brand_filter = st.selectbox(
+        "Brand",
+        ["All", "Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"],
+        index=0,
+        key="brand_filter",
+    )
 
-owner_options = ["All"] + owner_universe(base_filtered_df)
+    base_filtered_df = apply_base_filters(
+        campaigns_df,
+        start_date=selected_start,
+        end_date=selected_end,
+        brand=brand_filter,
+    )
 
-with filter_col_3:
+    owner_options = ["All"] + owner_universe(base_filtered_df)
+
     owner_filter = st.selectbox(
         "Owner",
         owner_options,
@@ -875,23 +905,18 @@ with filter_col_3:
         key="owner_filter",
     )
 
+    st.markdown(
+        f"""
+        <div class="range-caption">
+            Showing: {selected_start.strftime('%d %b %Y')}–{selected_end.strftime('%d %b %Y')}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 filtered_df = apply_person_filter(base_filtered_df, owner_filter)
 
-st.markdown(
-    f"""
-    <div class="range-caption">
-        Showing: {selected_start.strftime('%d %b %Y')}–{selected_end.strftime('%d %b %Y')}
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-left_col, right_col = st.columns([1, 2.25], gap="large")
-
-with left_col:
-    st.markdown('<div class="blank-left-space"></div>', unsafe_allow_html=True)
-
-with right_col:
+with main_right:
     if filtered_df.empty:
         st.info("No campaigns found for the selected owner, brand and date range.")
     else:
