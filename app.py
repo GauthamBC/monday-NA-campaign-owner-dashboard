@@ -844,8 +844,8 @@ with main_left:
     st.markdown(
         """
         <div class="filter-panel">
-            <div class="filter-kicker">Filters</div>
-            <div class="filter-title">Campaign filters</div>
+            <div class="filter-kicker">Dashboard</div>
+            <div class="filter-title">Campaign Owner Dashboard</div>
             <div class="filter-sub">Choose your range, brand and owner.</div>
         </div>
         """,
@@ -936,11 +936,13 @@ with main_right:
       <div class="owner-name">{html.escape(owner)}</div>
       <div class="owner-sub">{len(owner_df)} campaign{'s' if len(owner_df) != 1 else ''} assigned</div>
     </div>
-    <div class="count-pill">{len(owner_df)}</div>
+    <div class="count-pill">{len(owner_df}</div>
   </div>
   {cards_html}
 </div>
 """.strip()
+
+                owner_html = owner_html.replace("{len(owner_df}", str(len(owner_df)))
 
                 st.markdown(owner_html, unsafe_allow_html=True)
         else:
