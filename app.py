@@ -59,7 +59,6 @@ COLUMN_ALIASES = {
     "date": ["date", "due", "deadline", "key date", "publish", "publication", "launch", "live date", "outreach date"],
     "status": ["status", "campaign status", "progress", "state"],
     "stage": ["stage", "phase", "workflow", "step", "campaign stage", "category"],
-    "priority": ["priority", "urgency"],
     "brand": ["brand", "site", "property", "vertical"],
 }
 
@@ -131,38 +130,8 @@ st.markdown(
             margin: -2px 0 24px 0;
         }
 
-        .people-panel {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 28px;
-            padding: 18px;
-            box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
-            position: sticky;
-            top: 18px;
-        }
-
-        .panel-kicker {
-            text-transform: uppercase;
-            letter-spacing: 0.18em;
-            color: #94a3b8;
-            font-weight: 850;
-            font-size: 11px;
-            margin-bottom: 4px;
-        }
-
-        .panel-title {
-            font-size: 22px;
-            font-weight: 850;
-            letter-spacing: -0.04em;
-            color: #020617;
-            margin-bottom: 4px;
-        }
-
-        .panel-copy {
-            font-size: 13px;
-            color: #64748b;
-            line-height: 1.5;
-            margin-bottom: 14px;
+        .blank-left-space {
+            min-height: 420px;
         }
 
         .section-kicker {
@@ -300,15 +269,6 @@ st.markdown(
             word-break: break-word;
         }
 
-        div.stButton > button {
-            border-radius: 16px;
-            min-height: 46px;
-            font-weight: 800;
-            border: 1px solid #e2e8f0;
-            text-align: left;
-            justify-content: flex-start;
-        }
-
         div[data-testid="stSidebar"] {
             display: none;
         }
@@ -316,7 +276,7 @@ st.markdown(
         @media (max-width: 900px) {
             .hero { padding: 24px; border-radius: 24px; }
             .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .people-panel { position: static; }
+            .blank-left-space { display: none; }
         }
     </style>
     """,
@@ -743,7 +703,6 @@ def build_rows(
     explicit_date_id = get_secret("DATE_COLUMN_ID", "")
     explicit_status_id = get_secret("STATUS_COLUMN_ID", "")
     explicit_stage_id = get_secret("STAGE_COLUMN_ID", "")
-    explicit_priority_id = get_secret("PRIORITY_COLUMN_ID", "")
     explicit_brand_id = get_secret("BRAND_COLUMN_ID", "")
 
     for board in boards:
@@ -840,26 +799,6 @@ def apply_person_filter(df: pd.DataFrame, person: str) -> pd.DataFrame:
     return df[df["owners"].apply(lambda vals: person in vals)]
 
 
-def owner_counts(df: pd.DataFrame) -> Dict[str, int]:
-    counts: Dict[str, int] = {}
-
-    for _, row in df.iterrows():
-        owners = row.get("owners", [])
-
-        if not isinstance(owners, list):
-            owners = split_people(owners)
-
-        for owner in owners:
-            counts[owner] = counts.get(owner, 0) + 1
-
-    return counts
-
-
-def safe_button_key(prefix: str, value: str) -> str:
-    cleaned = re.sub(r"[^a-zA-Z0-9_]+", "_", value).strip("_")
-    return f"{prefix}_{cleaned or 'blank'}"
-
-
 # ============================================================
 # APP
 # ============================================================
@@ -870,7 +809,7 @@ st.markdown(
         <div class="hero-pill">📌 Monday.com live dashboard</div>
         <h1 class="hero-title">Campaign Owner Dashboard</h1>
         <div class="hero-copy">
-            Choose a date range and brand, then click a person to see their assigned campaigns.
+            Choose a date range, brand and owner to see assigned campaigns.
         </div>
     </div>
     """,
@@ -883,19 +822,22 @@ board_ids = tuple(to_clean_list(get_secret("MONDAY_BOARD_IDS", [])) or DEFAULT_B
 
 if not api_key:
     st.error("Missing Monday API key in Streamlit secrets.")
-    st.code(
-        """
-MONDAY_API_KEY = "your_monday_api_token_here"
-
-# or old format:
-[monday]
-monday_api_token = "your_monday_api_token_here"
-        """.strip(),
-        language="toml",
-    )
     st.stop()
 
-filter_col_1, filter_col_2, filter_col_3 = st.columns([1, 1, 1.25], gap="medium")
+try:
+    with st.spinner("Pulling campaign data from Monday.com..."):
+        monday_boards = fetch_monday_boards(api_key, api_version, board_ids)
+        campaigns_df = build_rows(monday_boards, get_board_brand_map())
+except Exception as exc:
+    st.error("Could not fetch Monday data.")
+    st.code(str(exc))
+    st.stop()
+
+if campaigns_df.empty:
+    st.warning("No campaign items were returned from the selected Monday boards.")
+    st.stop()
+
+filter_col_1, filter_col_2, filter_col_3 = st.columns([1, 1, 1], gap="medium")
 
 with filter_col_1:
     period_filter = st.selectbox(
@@ -916,8 +858,9 @@ with filter_col_2:
 custom_start: Optional[date] = None
 custom_end: Optional[date] = None
 
-with filter_col_3:
-    if period_filter == "Custom":
+if period_filter == "Custom":
+    custom_col_1, custom_col_2 = st.columns([1, 2], gap="medium")
+    with custom_col_1:
         today = london_today()
         default_start = today - timedelta(days=today.weekday())
         default_end = default_start + timedelta(days=6)
@@ -937,6 +880,25 @@ with filter_col_3:
 
 selected_start, selected_end = period_range(period_filter, custom_start, custom_end)
 
+base_filtered_df = apply_base_filters(
+    campaigns_df,
+    start_date=selected_start,
+    end_date=selected_end,
+    brand=brand_filter,
+)
+
+owner_options = ["All"] + owner_universe(base_filtered_df)
+
+with filter_col_3:
+    owner_filter = st.selectbox(
+        "Owner",
+        owner_options,
+        index=0,
+        key="owner_filter",
+    )
+
+filtered_df = apply_person_filter(base_filtered_df, owner_filter)
+
 st.markdown(
     f"""
     <div class="range-caption">
@@ -946,90 +908,17 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-try:
-    with st.spinner("Pulling campaign data from Monday.com..."):
-        monday_boards = fetch_monday_boards(api_key, api_version, board_ids)
-        campaigns_df = build_rows(monday_boards, get_board_brand_map())
-except Exception as exc:
-    st.error("Could not fetch Monday data.")
-    st.code(str(exc))
-    st.stop()
-
-if campaigns_df.empty:
-    st.warning("No campaign items were returned from the selected Monday boards.")
-    st.stop()
-
-base_filtered_df = apply_base_filters(
-    campaigns_df,
-    start_date=selected_start,
-    end_date=selected_end,
-    brand=brand_filter,
-)
-
-counts = owner_counts(base_filtered_df)
-people = sorted(counts.keys())
-
-if "selected_owner" not in st.session_state:
-    st.session_state.selected_owner = "All"
-
-valid_people = ["All"] + people
-
-if st.session_state.selected_owner not in valid_people:
-    st.session_state.selected_owner = "All"
-
-selected_owner = st.session_state.selected_owner
-filtered_df = apply_person_filter(base_filtered_df, selected_owner)
-
 left_col, right_col = st.columns([1, 2.25], gap="large")
 
 with left_col:
-    st.markdown(
-        f"""
-        <div class="people-panel">
-            <div class="panel-kicker">People</div>
-            <div class="panel-title">Assigned owners</div>
-            <div class="panel-copy">
-                {html.escape(period_filter)} · {selected_start.strftime('%d %b')}–{selected_end.strftime('%d %b')}<br>
-                {html.escape(brand_filter)}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    all_label = f"{'✅ ' if selected_owner == 'All' else ''}All Campaigns · {len(base_filtered_df)}"
-
-    if st.button(
-        all_label,
-        key="person_all",
-        use_container_width=True,
-        type="primary" if selected_owner == "All" else "secondary",
-    ):
-        st.session_state.selected_owner = "All"
-        st.rerun()
-
-    if not people:
-        st.info("No assigned people found for the selected range/brand.")
-    else:
-        for person in people:
-            count = counts.get(person, 0)
-            label = f"{'✅ ' if selected_owner == person else ''}{person} · {count}"
-
-            if st.button(
-                label,
-                key=safe_button_key("person", person),
-                use_container_width=True,
-                type="primary" if selected_owner == person else "secondary",
-            ):
-                st.session_state.selected_owner = person
-                st.rerun()
+    st.markdown('<div class="blank-left-space"></div>', unsafe_allow_html=True)
 
 with right_col:
     st.markdown(
         f"""
         <div class="section-kicker">Current view</div>
         <div class="section-title">
-            {html.escape(selected_owner)}
+            {html.escape(owner_filter)}
         </div>
         <div class="section-sub">
             {html.escape(brand_filter)} · {html.escape(period_filter)}
@@ -1041,9 +930,9 @@ with right_col:
     )
 
     if filtered_df.empty:
-        st.info("No campaigns found for the selected person, brand and date range.")
+        st.info("No campaigns found for the selected owner, brand and date range.")
     else:
-        if selected_owner == "All":
+        if owner_filter == "All":
             for owner in owner_universe(filtered_df):
                 owner_df = filtered_df[filtered_df["owners"].apply(lambda vals: owner in vals)]
 
