@@ -134,29 +134,6 @@ st.markdown(
             min-height: 420px;
         }
 
-        .section-kicker {
-            text-transform: uppercase;
-            letter-spacing: 0.18em;
-            color: #94a3b8;
-            font-weight: 850;
-            font-size: 12px;
-            margin-bottom: 4px;
-        }
-
-        .section-title {
-            font-size: 30px;
-            font-weight: 850;
-            letter-spacing: -0.045em;
-            color: #020617;
-            margin: 0 0 6px;
-        }
-
-        .section-sub {
-            color: #64748b;
-            font-size: 14px;
-            margin-bottom: 18px;
-        }
-
         .owner-block {
             background: rgba(255,255,255,0.72);
             border: 1px solid #e2e8f0;
@@ -860,6 +837,7 @@ custom_end: Optional[date] = None
 
 if period_filter == "Custom":
     custom_col_1, custom_col_2 = st.columns([1, 2], gap="medium")
+
     with custom_col_1:
         today = london_today()
         default_start = today - timedelta(days=today.weekday())
@@ -914,21 +892,6 @@ with left_col:
     st.markdown('<div class="blank-left-space"></div>', unsafe_allow_html=True)
 
 with right_col:
-    st.markdown(
-        f"""
-        <div class="section-kicker">Current view</div>
-        <div class="section-title">
-            {html.escape(owner_filter)}
-        </div>
-        <div class="section-sub">
-            {html.escape(brand_filter)} · {html.escape(period_filter)}
-            · {selected_start.strftime('%d %b')}–{selected_end.strftime('%d %b')}
-            · Showing {len(filtered_df)} campaign{'s' if len(filtered_df) != 1 else ''}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     if filtered_df.empty:
         st.info("No campaigns found for the selected owner, brand and date range.")
     else:
