@@ -936,13 +936,11 @@ with main_right:
       <div class="owner-name">{html.escape(owner)}</div>
       <div class="owner-sub">{len(owner_df)} campaign{'s' if len(owner_df) != 1 else ''} assigned</div>
     </div>
-    <div class="count-pill">{len(owner_df}</div>
+    <div class="count-pill">{len(owner_df)}</div>
   </div>
   {cards_html}
 </div>
 """.strip()
-
-                owner_html = owner_html.replace("{len(owner_df}", str(len(owner_df)))
 
                 st.markdown(owner_html, unsafe_allow_html=True)
         else:
