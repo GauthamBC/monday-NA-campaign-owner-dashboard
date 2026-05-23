@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from zoneinfo import ZoneInfo
@@ -21,6 +22,7 @@ MONDAY_API_URL = "https://api.monday.com/v2"
 DEFAULT_API_VERSION = "2025-04"
 PAGE_LIMIT = 500
 APP_TIMEZONE = "Europe/London"
+CACHE_TTL_SECONDS = 900
 
 DEFAULT_BOARD_IDS = [
     "6727663754",  # Vegas Insider
@@ -34,6 +36,17 @@ DEFAULT_BOARD_BRANDS = {
     "6727665427": "Action Network",
     "7101616385": "Canada Sports Betting",
     "7077539299": "RotoGrinders",
+}
+
+OWNER_ALIASES = {
+    "gautham": "Gautham Marthandan",
+    "gautham marthandan": "Gautham Marthandan",
+    "amy": "Amy Harris",
+    "amy harris": "Amy Harris",
+    "ben": "Ben Mendelowitz",
+    "ben mendelowitz": "Ben Mendelowitz",
+    "kathy": "Kathy Morris",
+    "kathy morris": "Kathy Morris",
 }
 
 BRAND_COLOURS = {
@@ -53,6 +66,8 @@ STATUS_COLOURS = {
     "outreach in progress": {"bg": "#F5F3FF", "text": "#6D28D9", "border": "#DDD6FE"},
     "commissioned": {"bg": "#FEF3C7", "text": "#A16207", "border": "#FDE68A"},
     "live on site": {"bg": "#ECFEFF", "text": "#0E7490", "border": "#A5F3FC"},
+    "produce": {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"},
+    "promote": {"bg": "#F5F3FF", "text": "#6D28D9", "border": "#DDD6FE"},
 }
 
 COLUMN_ALIASES = {
@@ -143,7 +158,7 @@ st.markdown(
 
 
 # ============================================================
-# HELPERS
+# BASIC HELPERS
 # ============================================================
 
 def get_secret(name: str, default: Any = None) -> Any:
@@ -181,8 +196,45 @@ def normalise(text: Any) -> str:
     return re.sub(r"\s+", " ", str(text or "").strip().lower())
 
 
+def deescaped(value: Any) -> str:
+    return html.unescape(str(value or ""))
+
+
+def canonical_owner_name(value: str) -> str:
+    cleaned = deescaped(value).strip()
+
+    if not cleaned:
+        return ""
+
+    lowered = normalise(cleaned)
+
+    if lowered in OWNER_ALIASES:
+        return OWNER_ALIASES[lowered]
+
+    for key, proper_name in OWNER_ALIASES.items():
+        if re.search(rf"\b{re.escape(key)}\b", lowered):
+            return proper_name
+
+    return cleaned
+
+
+def dedupe_keep_order(values: List[str]) -> List[str]:
+    seen = set()
+    output = []
+
+    for value in values:
+        cleaned = value.strip()
+        key = normalise(cleaned)
+
+        if cleaned and key not in seen:
+            seen.add(key)
+            output.append(cleaned)
+
+    return output
+
+
 def clean_brand_name(value: str) -> str:
-    text = str(value or "").strip()
+    text = deescaped(value).strip()
     lower = normalise(text)
 
     if "vegas" in lower:
@@ -206,16 +258,6 @@ def clean_brand_name(value: str) -> str:
     }
 
     return replacements.get(text, text)
-
-
-def split_people(text: Any) -> List[str]:
-    cleaned = str(text or "").strip()
-
-    if not cleaned:
-        return ["Unassigned"]
-
-    people = [p.strip() for p in re.split(r",|;|\||\n", cleaned) if p.strip()]
-    return people or [cleaned]
 
 
 def london_today() -> date:
@@ -309,36 +351,187 @@ def default_week_index(week_options: List[Dict[str, Any]], month_start: date, mo
     return 0
 
 
-def parse_monday_date(text: Any, raw_value: Any = None) -> Optional[date]:
-    candidates: List[str] = []
+# ============================================================
+# DATE + OWNER PARSING
+# ============================================================
 
-    if text:
-        candidates.append(str(text))
+def parse_single_date(value: Any) -> Optional[date]:
+    if value is None:
+        return None
+
+    text = str(value).strip()
+
+    if not text:
+        return None
+
+    parsed = pd.to_datetime(text, errors="coerce", dayfirst=False)
+
+    if pd.isna(parsed):
+        return None
+
+    return parsed.date()
+
+
+def parse_monday_date_range(text: Any, raw_value: Any = None) -> Tuple[Optional[date], Optional[date]]:
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
 
     if raw_value:
         try:
             parsed_value = json.loads(raw_value) if isinstance(raw_value, str) else raw_value
+
             if isinstance(parsed_value, dict):
-                for key in ["date", "from", "to"]:
-                    if parsed_value.get(key):
-                        candidates.append(str(parsed_value[key]))
+                if parsed_value.get("date"):
+                    one_date = parse_single_date(parsed_value.get("date"))
+                    return one_date, one_date
+
+                from_date = parse_single_date(parsed_value.get("from"))
+                to_date = parse_single_date(parsed_value.get("to"))
+
+                if from_date or to_date:
+                    return from_date or to_date, to_date or from_date
         except Exception:
             pass
 
-    for candidate in candidates:
-        parsed = pd.to_datetime(candidate, errors="coerce", dayfirst=False)
-        if not pd.isna(parsed):
-            return parsed.date()
+    text_date = parse_single_date(text)
 
-    return None
+    if text_date:
+        start_date = text_date
+        end_date = text_date
+
+    return start_date, end_date
 
 
-def format_display_date(value: Optional[date]) -> str:
-    if value is None or pd.isna(value):
+def parse_group_week_range(group_title: str) -> Tuple[Optional[date], Optional[date]]:
+    text = deescaped(group_title)
+    lower = normalise(text)
+
+    patterns = [
+        r"(?:week\s*c\.?|week\s+commencing|w/c|wc|c\.)\s*(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})",
+        r"week\s+of\s+(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})",
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, lower)
+
+        if match:
+            day = int(match.group(1))
+            month = int(match.group(2))
+            year = int(match.group(3))
+
+            if year < 100:
+                year += 2000
+
+            try:
+                start = date(year, month, day)
+                return start, start + timedelta(days=6)
+            except ValueError:
+                return None, None
+
+    return None, None
+
+
+def format_display_date_range(start: Optional[date], end: Optional[date]) -> str:
+    if not start and not end:
         return "No date"
 
-    return value.strftime("%a %d %b")
+    if start and not end:
+        return start.strftime("%a %d %b")
 
+    if end and not start:
+        return end.strftime("%a %d %b")
+
+    if start == end:
+        return start.strftime("%a %d %b")
+
+    if start.year == end.year and start.month == end.month:
+        return f"{start.strftime('%d')}–{end.strftime('%d %b')}"
+
+    if start.year == end.year:
+        return f"{start.strftime('%d %b')}–{end.strftime('%d %b')}"
+
+    return f"{start.strftime('%d %b %Y')}–{end.strftime('%d %b %Y')}"
+
+
+def extract_people_from_value(raw_value: Any, user_map: Dict[str, str]) -> List[str]:
+    names: List[str] = []
+
+    if not raw_value:
+        return names
+
+    try:
+        parsed_value = json.loads(raw_value) if isinstance(raw_value, str) else raw_value
+    except Exception:
+        return names
+
+    if not isinstance(parsed_value, dict):
+        return names
+
+    people_bits = parsed_value.get("personsAndTeams") or parsed_value.get("persons_and_teams") or []
+
+    if not isinstance(people_bits, list):
+        return names
+
+    for person in people_bits:
+        if not isinstance(person, dict):
+            continue
+
+        person_id = str(person.get("id") or "").strip()
+        kind = str(person.get("kind") or "").strip().lower()
+
+        if kind == "person" and person_id in user_map:
+            names.append(user_map[person_id])
+        elif kind == "person" and person_id:
+            names.append(f"Person {person_id}")
+        elif kind == "team" and person_id:
+            names.append(f"Team {person_id}")
+
+    return names
+
+
+def split_people_text(text: Any) -> List[str]:
+    cleaned = deescaped(text).strip()
+
+    if not cleaned:
+        return []
+
+    people = [p.strip() for p in re.split(r",|;|\||\n| / ", cleaned) if p.strip()]
+    return people or [cleaned]
+
+
+def extract_owners(owner_text: Any, owner_raw: Any, user_map: Dict[str, str]) -> List[str]:
+    owners: List[str] = []
+
+    owners.extend(extract_people_from_value(owner_raw, user_map))
+    owners.extend(split_people_text(owner_text))
+
+    canonicalised = [canonical_owner_name(owner) for owner in owners]
+    canonicalised = [owner for owner in canonicalised if owner and not owner.lower().startswith("person ")]
+
+    return dedupe_keep_order(canonicalised) or ["Unassigned"]
+
+
+def owner_matches(owners: List[str], selected_owner: str) -> bool:
+    if selected_owner == "All":
+        return True
+
+    selected_key = normalise(canonical_owner_name(selected_owner))
+
+    for owner in owners:
+        owner_key = normalise(canonical_owner_name(owner))
+
+        if owner_key == selected_key:
+            return True
+
+        if selected_key in owner_key or owner_key in selected_key:
+            return True
+
+    return False
+
+
+# ============================================================
+# DISPLAY HELPERS
+# ============================================================
 
 def style_for_brand(brand: str) -> Dict[str, str]:
     return BRAND_COLOURS.get(
@@ -374,7 +567,7 @@ def campaign_card_html(row: pd.Series) -> str:
       <div class="badge-row">
         {badge(row.get("brand", "—"), brand_colours)}
         {badge(str(row.get("status", "—")), status_colours)}
-        {badge(str(row.get("key_date_display", "No date")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
+        {badge(str(row.get("date_display", "No date")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
       </div>
       <div class="campaign-title">{html.escape(str(row.get("campaign", "Untitled campaign")))}</div>
       <div class="campaign-note">
@@ -399,7 +592,7 @@ def campaign_card_html(row: pd.Series) -> str:
       </div>
       <div>
         <div class="mini-label">Date</div>
-        <div class="mini-value">{html.escape(str(row.get("key_date_display", "No date")))}</div>
+        <div class="mini-value">{html.escape(str(row.get("date_display", "No date")))}</div>
       </div>
     </div>
   </div>
@@ -408,11 +601,11 @@ def campaign_card_html(row: pd.Series) -> str:
 
 
 # ============================================================
-# MONDAY API
+# MONDAY API QUERIES
 # ============================================================
 
-BOARD_ITEMS_QUERY = """
-query ($board_ids: [ID!], $limit: Int!) {
+BOARD_COLUMNS_QUERY = """
+query ($board_ids: [ID!]) {
   boards(ids: $board_ids) {
     id
     name
@@ -421,6 +614,71 @@ query ($board_ids: [ID!], $limit: Int!) {
       title
       type
     }
+  }
+}
+"""
+
+USERS_QUERY = """
+query {
+  users {
+    id
+    name
+    email
+  }
+}
+"""
+
+BOARD_ITEMS_SELECTED_QUERY = """
+query ($board_ids: [ID!], $limit: Int!, $column_ids: [String]) {
+  boards(ids: $board_ids) {
+    id
+    items_page(limit: $limit) {
+      cursor
+      items {
+        id
+        name
+        group {
+          id
+          title
+        }
+        column_values(ids: $column_ids) {
+          id
+          text
+          value
+          type
+        }
+      }
+    }
+  }
+}
+"""
+
+NEXT_ITEMS_SELECTED_QUERY = """
+query ($cursor: String!, $limit: Int!, $column_ids: [String]) {
+  next_items_page(cursor: $cursor, limit: $limit) {
+    cursor
+    items {
+      id
+      name
+      group {
+        id
+        title
+      }
+      column_values(ids: $column_ids) {
+        id
+        text
+        value
+        type
+      }
+    }
+  }
+}
+"""
+
+BOARD_ITEMS_ALL_QUERY = """
+query ($board_ids: [ID!], $limit: Int!) {
+  boards(ids: $board_ids) {
+    id
     items_page(limit: $limit) {
       cursor
       items {
@@ -442,7 +700,7 @@ query ($board_ids: [ID!], $limit: Int!) {
 }
 """
 
-NEXT_ITEMS_PAGE_QUERY = """
+NEXT_ITEMS_ALL_QUERY = """
 query ($cursor: String!, $limit: Int!) {
   next_items_page(cursor: $cursor, limit: $limit) {
     cursor
@@ -495,52 +753,39 @@ def monday_graphql(
     return body.get("data", {})
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def fetch_monday_boards(
+def fetch_user_map(api_key: str, api_version: str) -> Dict[str, str]:
+    try:
+        data = monday_graphql(api_key, api_version, USERS_QUERY)
+        users = data.get("users", []) or []
+
+        mapping: Dict[str, str] = {}
+
+        for user in users:
+            user_id = str(user.get("id") or "").strip()
+            name = str(user.get("name") or "").strip()
+
+            if user_id and name:
+                mapping[user_id] = canonical_owner_name(name)
+
+        return mapping
+    except Exception:
+        return {}
+
+
+def fetch_board_columns(
     api_key: str,
     api_version: str,
     board_ids: Tuple[str, ...],
 ) -> List[Dict[str, Any]]:
-    boards: List[Dict[str, Any]] = []
+    data = monday_graphql(
+        api_key,
+        api_version,
+        BOARD_COLUMNS_QUERY,
+        {"board_ids": [str(board_id) for board_id in board_ids]},
+    )
 
-    for board_id in board_ids:
-        data = monday_graphql(
-            api_key,
-            api_version,
-            BOARD_ITEMS_QUERY,
-            {"board_ids": [str(board_id)], "limit": PAGE_LIMIT},
-        )
+    return data.get("boards", []) or []
 
-        board_list = data.get("boards", [])
-        if not board_list:
-            continue
-
-        board = board_list[0]
-        items_page = board.get("items_page") or {}
-        all_items = list(items_page.get("items") or [])
-        cursor = items_page.get("cursor")
-
-        while cursor:
-            next_data = monday_graphql(
-                api_key,
-                api_version,
-                NEXT_ITEMS_PAGE_QUERY,
-                {"cursor": cursor, "limit": PAGE_LIMIT},
-            )
-
-            next_page = next_data.get("next_items_page") or {}
-            all_items.extend(next_page.get("items") or [])
-            cursor = next_page.get("cursor")
-
-        board["items"] = all_items
-        boards.append(board)
-
-    return boards
-
-
-# ============================================================
-# MONDAY TRANSFORM
-# ============================================================
 
 def find_column_id(
     columns: List[Dict[str, Any]],
@@ -557,22 +802,166 @@ def find_column_id(
 
     for col in columns:
         title = normalise(col.get("title"))
+
         if title in alias_set:
             return str(col.get("id"))
 
     for col in columns:
         title = normalise(col.get("title"))
+
         if any(alias in title for alias in alias_set):
             return str(col.get("id"))
 
     if fallback_types:
         type_set = {normalise(t) for t in fallback_types}
+
         for col in columns:
             if normalise(col.get("type")) in type_set:
                 return str(col.get("id"))
 
     return None
 
+
+def resolve_board_column_ids(columns: List[Dict[str, Any]]) -> Dict[str, Optional[str]]:
+    return {
+        "owner": find_column_id(columns, get_secret("OWNER_COLUMN_ID", ""), COLUMN_ALIASES["owner"], ["people", "person"]),
+        "date": find_column_id(columns, get_secret("DATE_COLUMN_ID", ""), COLUMN_ALIASES["date"], ["date", "timeline"]),
+        "status": find_column_id(columns, get_secret("STATUS_COLUMN_ID", ""), COLUMN_ALIASES["status"], ["status"]),
+        "stage": find_column_id(columns, get_secret("STAGE_COLUMN_ID", ""), COLUMN_ALIASES["stage"], ["dropdown", "status"]),
+        "brand": find_column_id(columns, get_secret("BRAND_COLUMN_ID", ""), COLUMN_ALIASES["brand"], ["dropdown", "status"]),
+    }
+
+
+def fetch_board_items(
+    api_key: str,
+    api_version: str,
+    board: Dict[str, Any],
+    selected_column_ids: List[str],
+) -> Dict[str, Any]:
+    board_id = str(board.get("id", ""))
+
+    try_selected = bool(selected_column_ids)
+
+    if try_selected:
+        try:
+            data = monday_graphql(
+                api_key,
+                api_version,
+                BOARD_ITEMS_SELECTED_QUERY,
+                {
+                    "board_ids": [board_id],
+                    "limit": PAGE_LIMIT,
+                    "column_ids": selected_column_ids,
+                },
+            )
+
+            board_data = (data.get("boards") or [{}])[0]
+            items_page = board_data.get("items_page") or {}
+            all_items = list(items_page.get("items") or [])
+            cursor = items_page.get("cursor")
+
+            while cursor:
+                next_data = monday_graphql(
+                    api_key,
+                    api_version,
+                    NEXT_ITEMS_SELECTED_QUERY,
+                    {
+                        "cursor": cursor,
+                        "limit": PAGE_LIMIT,
+                        "column_ids": selected_column_ids,
+                    },
+                )
+
+                next_page = next_data.get("next_items_page") or {}
+                all_items.extend(next_page.get("items") or [])
+                cursor = next_page.get("cursor")
+
+            board["items"] = all_items
+            return board
+
+        except Exception:
+            pass
+
+    data = monday_graphql(
+        api_key,
+        api_version,
+        BOARD_ITEMS_ALL_QUERY,
+        {
+            "board_ids": [board_id],
+            "limit": PAGE_LIMIT,
+        },
+    )
+
+    board_data = (data.get("boards") or [{}])[0]
+    items_page = board_data.get("items_page") or {}
+    all_items = list(items_page.get("items") or [])
+    cursor = items_page.get("cursor")
+
+    while cursor:
+        next_data = monday_graphql(
+            api_key,
+            api_version,
+            NEXT_ITEMS_ALL_QUERY,
+            {
+                "cursor": cursor,
+                "limit": PAGE_LIMIT,
+            },
+        )
+
+        next_page = next_data.get("next_items_page") or {}
+        all_items.extend(next_page.get("items") or [])
+        cursor = next_page.get("cursor")
+
+    board["items"] = all_items
+    return board
+
+
+@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
+def fetch_monday_data(
+    api_key: str,
+    api_version: str,
+    board_ids: Tuple[str, ...],
+) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
+    boards = fetch_board_columns(api_key, api_version, board_ids)
+    user_map = fetch_user_map(api_key, api_version)
+
+    prepared_boards = []
+
+    for board in boards:
+        columns = board.get("columns", []) or []
+        column_ids = resolve_board_column_ids(columns)
+        selected_column_ids = dedupe_keep_order([value for value in column_ids.values() if value])
+
+        board["resolved_column_ids"] = column_ids
+        board["selected_column_ids"] = selected_column_ids
+        prepared_boards.append(board)
+
+    results: List[Dict[str, Any]] = []
+
+    with ThreadPoolExecutor(max_workers=min(4, max(1, len(prepared_boards)))) as executor:
+        futures = [
+            executor.submit(
+                fetch_board_items,
+                api_key,
+                api_version,
+                board,
+                board.get("selected_column_ids", []),
+            )
+            for board in prepared_boards
+        ]
+
+        for future in as_completed(futures):
+            results.append(future.result())
+
+    board_order = {str(board_id): idx for idx, board_id in enumerate(board_ids)}
+    results.sort(key=lambda board: board_order.get(str(board.get("id", "")), 999))
+
+    return results, user_map
+
+
+# ============================================================
+# MONDAY TRANSFORM
+# ============================================================
 
 def get_column_value(item: Dict[str, Any], column_id: Optional[str]) -> Tuple[str, Any, str]:
     if not column_id:
@@ -600,59 +989,62 @@ def get_board_brand_map() -> Dict[str, str]:
 def build_rows(
     boards: List[Dict[str, Any]],
     board_brand_map: Dict[str, str],
+    user_map: Dict[str, str],
 ) -> pd.DataFrame:
     rows: List[Dict[str, Any]] = []
-
-    explicit_owner_id = get_secret("OWNER_COLUMN_ID", "")
-    explicit_date_id = get_secret("DATE_COLUMN_ID", "")
-    explicit_status_id = get_secret("STATUS_COLUMN_ID", "")
-    explicit_stage_id = get_secret("STAGE_COLUMN_ID", "")
-    explicit_brand_id = get_secret("BRAND_COLUMN_ID", "")
 
     for board in boards:
         board_id = str(board.get("id", ""))
         board_name = str(board.get("name", "Untitled board"))
-        columns = board.get("columns", []) or []
+        column_ids = board.get("resolved_column_ids", {}) or {}
 
-        owner_col = find_column_id(columns, explicit_owner_id, COLUMN_ALIASES["owner"], ["people", "person"])
-        date_col = find_column_id(columns, explicit_date_id, COLUMN_ALIASES["date"], ["date", "timeline"])
-        status_col = find_column_id(columns, explicit_status_id, COLUMN_ALIASES["status"], ["status"])
-        stage_col = find_column_id(columns, explicit_stage_id, COLUMN_ALIASES["stage"], ["dropdown", "status"])
-        brand_col = find_column_id(columns, explicit_brand_id, COLUMN_ALIASES["brand"], ["dropdown", "status"])
+        owner_col = column_ids.get("owner")
+        date_col = column_ids.get("date")
+        status_col = column_ids.get("status")
+        stage_col = column_ids.get("stage")
+        brand_col = column_ids.get("brand")
 
         for item in board.get("items", []) or []:
-            owner_text, _, _ = get_column_value(item, owner_col)
+            group_title = (item.get("group") or {}).get("title") or "—"
+
+            owner_text, owner_raw, _ = get_column_value(item, owner_col)
             date_text, date_raw, _ = get_column_value(item, date_col)
             status_text, _, _ = get_column_value(item, status_col)
             stage_text, _, _ = get_column_value(item, stage_col)
             brand_text, _, _ = get_column_value(item, brand_col)
 
-            owners = split_people(owner_text)
-            parsed_date = parse_monday_date(date_text, date_raw)
+            owners = extract_owners(owner_text, owner_raw, user_map)
+
+            start_date, end_date = parse_monday_date_range(date_text, date_raw)
+
+            if not start_date and not end_date:
+                start_date, end_date = parse_group_week_range(group_title)
+
             brand = clean_brand_name(brand_text or board_brand_map.get(board_id) or board_name)
 
             rows.append(
                 {
                     "board_id": board_id,
                     "board_name": board_name,
-                    "group": (item.get("group") or {}).get("title") or "—",
+                    "group": group_title,
                     "item_id": str(item.get("id", "")),
-                    "campaign": item.get("name") or "Untitled campaign",
+                    "campaign": deescaped(item.get("name") or "Untitled campaign"),
                     "brand": brand,
                     "owners": owners,
                     "owners_display": ", ".join(owners),
-                    "key_date": parsed_date,
-                    "key_date_display": format_display_date(parsed_date),
+                    "start_date": start_date,
+                    "end_date": end_date or start_date,
+                    "date_display": format_display_date_range(start_date, end_date or start_date),
                     "date_raw_text": date_text,
-                    "status": status_text or "—",
-                    "stage": stage_text or "—",
+                    "status": deescaped(status_text or "—"),
+                    "stage": deescaped(stage_text or "—"),
                 }
             )
 
     df = pd.DataFrame(rows)
 
     if not df.empty:
-        df["sort_date"] = pd.to_datetime(df["key_date"], errors="coerce")
+        df["sort_date"] = pd.to_datetime(df["start_date"], errors="coerce")
         df = df.sort_values(["sort_date", "brand", "campaign"], na_position="last")
 
     return df
@@ -665,9 +1057,25 @@ def owner_universe(df: pd.DataFrame) -> List[str]:
     owners: List[str] = []
 
     for values in df["owners"]:
-        owners.extend(values if isinstance(values, list) else split_people(values))
+        if isinstance(values, list):
+            owners.extend(values)
 
-    return sorted(set(owners))
+    return sorted(set(owners), key=lambda x: normalise(x))
+
+
+def date_overlaps(
+    item_start: Optional[date],
+    item_end: Optional[date],
+    selected_start: date,
+    selected_end: date,
+) -> bool:
+    if not item_start and not item_end:
+        return False
+
+    actual_start = item_start or item_end
+    actual_end = item_end or item_start
+
+    return actual_start <= selected_end and actual_end >= selected_start
 
 
 def apply_base_filters(
@@ -682,8 +1090,9 @@ def apply_base_filters(
     filtered = df.copy()
 
     filtered = filtered[
-        filtered["key_date"].apply(
-            lambda d: d is not None and not pd.isna(d) and start_date <= d <= end_date
+        filtered.apply(
+            lambda row: date_overlaps(row.get("start_date"), row.get("end_date"), start_date, end_date),
+            axis=1,
         )
     ]
 
@@ -700,8 +1109,12 @@ def apply_person_filter(df: pd.DataFrame, person: str) -> pd.DataFrame:
     if person == "All":
         return df
 
-    return df[df["owners"].apply(lambda vals: person in vals)]
+    return df[df["owners"].apply(lambda vals: owner_matches(vals, person))]
 
+
+# ============================================================
+# HTML RESULTS
+# ============================================================
 
 def cards_grid_html(df: pd.DataFrame) -> str:
     cards = "\n".join(campaign_card_html(row) for _, row in df.iterrows())
@@ -734,7 +1147,7 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
         blocks: List[str] = []
 
         for owner in owner_universe(filtered_df):
-            owner_df = filtered_df[filtered_df["owners"].apply(lambda vals: owner in vals)]
+            owner_df = filtered_df[filtered_df["owners"].apply(lambda vals: owner_matches(vals, owner))]
 
             if owner_df.empty:
                 continue
@@ -1029,10 +1442,19 @@ if not api_key:
     st.error("Missing Monday API key in Streamlit secrets.")
     st.stop()
 
+refresh_col, _ = st.columns([1, 5])
+
+with refresh_col:
+    refresh_clicked = st.button("Refresh data", use_container_width=True)
+
+if refresh_clicked:
+    fetch_monday_data.clear()
+    st.rerun()
+
 try:
     with st.spinner("Pulling campaign data from Monday.com..."):
-        monday_boards = fetch_monday_boards(api_key, api_version, board_ids)
-        campaigns_df = build_rows(monday_boards, get_board_brand_map())
+        monday_boards, monday_user_map = fetch_monday_data(api_key, api_version, board_ids)
+        campaigns_df = build_rows(monday_boards, get_board_brand_map(), monday_user_map)
 except Exception as exc:
     st.error("Could not fetch Monday data.")
     st.code(str(exc))
