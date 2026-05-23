@@ -164,7 +164,7 @@ st.markdown(
         }
 
         .results-inner {
-            min-width: 760px;
+            min-width: 900px;
         }
 
         .owner-block {
@@ -174,6 +174,10 @@ st.markdown(
             padding: 14px;
             margin-bottom: 14px;
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+        }
+
+        .owner-block:last-child {
+            margin-bottom: 0;
         }
 
         .owner-header {
@@ -209,17 +213,23 @@ st.markdown(
             white-space: nowrap;
         }
 
+        .campaign-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            align-items: stretch;
+        }
+
         .campaign-card {
             background: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 20px;
             padding: 14px;
-            margin-bottom: 10px;
             box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
-        }
-
-        .campaign-card:last-child {
-            margin-bottom: 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
 
         .campaign-card:hover {
@@ -265,11 +275,12 @@ st.markdown(
 
         .mini-grid {
             display: grid;
-            grid-template-columns: 1.15fr 0.85fr 0.95fr 0.75fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
             background: #f8fafc;
             border-radius: 15px;
             padding: 10px;
+            margin-top: auto;
         }
 
         .mini-label {
@@ -316,8 +327,8 @@ st.markdown(
                 min-width: 680px;
             }
 
-            .mini-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+            .campaign-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -503,17 +514,19 @@ def campaign_card_html(row: pd.Series) -> str:
 
     return f"""
 <div class="campaign-card">
-  <div class="badge-row">
-    {badge(row.get("brand", "—"), brand_colours)}
-    {badge(str(row.get("status", "—")), status_colours)}
-    {badge(str(row.get("key_date_display", "No date")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
-  </div>
+  <div>
+    <div class="badge-row">
+      {badge(row.get("brand", "—"), brand_colours)}
+      {badge(str(row.get("status", "—")), status_colours)}
+      {badge(str(row.get("key_date_display", "No date")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
+    </div>
 
-  <div class="campaign-title">{html.escape(str(row.get("campaign", "Untitled campaign")))}</div>
+    <div class="campaign-title">{html.escape(str(row.get("campaign", "Untitled campaign")))}</div>
 
-  <div class="campaign-note">
-    Board: {html.escape(str(row.get("board_name", "—")))}
-    · Group: {html.escape(str(row.get("group", "—")))}
+    <div class="campaign-note">
+      Board: {html.escape(str(row.get("board_name", "—")))}
+      · Group: {html.escape(str(row.get("group", "—")))}
+    </div>
   </div>
 
   <div class="mini-grid">
@@ -834,6 +847,11 @@ def apply_person_filter(df: pd.DataFrame, person: str) -> pd.DataFrame:
     return df[df["owners"].apply(lambda vals: person in vals)]
 
 
+def cards_grid_html(df: pd.DataFrame) -> str:
+    cards = "\n".join(campaign_card_html(row) for _, row in df.iterrows())
+    return f'<div class="campaign-grid">{cards}</div>'
+
+
 def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
     if filtered_df.empty:
         return """
@@ -853,8 +871,6 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
             if owner_df.empty:
                 continue
 
-            cards_html = "\n".join(campaign_card_html(row) for _, row in owner_df.iterrows())
-
             blocks.append(
                 f"""
                 <div class="owner-block">
@@ -865,14 +881,14 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
                     </div>
                     <div class="count-pill">{len(owner_df)}</div>
                   </div>
-                  {cards_html}
+                  {cards_grid_html(owner_df)}
                 </div>
                 """.strip()
             )
 
         content = "\n".join(blocks)
     else:
-        content = "\n".join(campaign_card_html(row) for _, row in filtered_df.iterrows())
+        content = cards_grid_html(filtered_df)
 
     return f"""
     <div class="results-panel">
@@ -941,9 +957,6 @@ with filter_col_2:
         index=0,
         key="brand_filter",
     )
-
-selected_start: date
-selected_end: date
 
 if period_filter == "Custom":
     custom_col_1, custom_col_2 = st.columns(2, gap="large")
