@@ -148,8 +148,8 @@ st.markdown(
             margin-bottom: 14px;
         }
 
-        .button-spacer {
-            height: 28px;
+        div[data-testid="stButton"] {
+            padding-top: 1.72rem;
         }
 
         div[data-testid="stButton"] > button {
@@ -157,6 +157,7 @@ st.markdown(
             border-radius: 12px;
             font-weight: 800;
             border: 1px solid #e2e8f0;
+            margin-top: 0 !important;
         }
 
         div[data-testid="stSidebar"] {
@@ -1472,7 +1473,7 @@ current_month_label = date(today.year, today.month, 1).strftime("%B %Y")
 default_month_index = month_labels.index(current_month_label) if current_month_label in month_labels else 0
 
 filter_col_1, filter_col_2, filter_col_3, filter_col_4, filter_col_5, filter_col_6 = st.columns(
-    6,
+    [1, 1, 1, 1, 0.85, 0.85],
     gap="large",
 )
 
@@ -1528,7 +1529,6 @@ with filter_col_4:
     )
 
 with filter_col_5:
-    st.markdown('<div class="button-spacer"></div>', unsafe_allow_html=True)
     get_data_clicked = st.button(
         "Get data",
         type="primary",
@@ -1537,7 +1537,6 @@ with filter_col_5:
     )
 
 with filter_col_6:
-    st.markdown('<div class="button-spacer"></div>', unsafe_allow_html=True)
     refresh_clicked = st.button(
         "Refresh data",
         use_container_width=True,
