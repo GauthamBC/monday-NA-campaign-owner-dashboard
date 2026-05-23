@@ -3,7 +3,6 @@ from __future__ import annotations
 import html
 import json
 import re
-import textwrap
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from zoneinfo import ZoneInfo
@@ -11,6 +10,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
 
 # ============================================================
@@ -133,204 +133,8 @@ st.markdown(
             margin-bottom: 14px;
         }
 
-        .results-panel {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 28px;
-            box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
-            padding: 16px;
-            max-height: 760px;
-            overflow-y: auto;
-            overflow-x: auto;
-        }
-
-        .results-panel::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-        }
-
-        .results-panel::-webkit-scrollbar-track {
-            background: #f1f5f9;
-            border-radius: 999px;
-        }
-
-        .results-panel::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 999px;
-            border: 2px solid #f1f5f9;
-        }
-
-        .results-panel::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-
-        .results-inner {
-            min-width: 900px;
-        }
-
-        .owner-block {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 24px;
-            padding: 14px;
-            margin-bottom: 14px;
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
-        }
-
-        .owner-block:last-child {
-            margin-bottom: 0;
-        }
-
-        .owner-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 14px;
-            margin-bottom: 12px;
-            padding: 2px 2px 0;
-        }
-
-        .owner-name {
-            font-size: 18px;
-            font-weight: 850;
-            letter-spacing: -0.03em;
-            color: #020617;
-            margin: 0;
-        }
-
-        .owner-sub {
-            color: #64748b;
-            font-size: 13px;
-            margin-top: 2px;
-        }
-
-        .count-pill {
-            background: #020617;
-            color: white;
-            border-radius: 999px;
-            padding: 6px 11px;
-            font-size: 12px;
-            font-weight: 850;
-            white-space: nowrap;
-        }
-
-        .campaign-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
-            align-items: stretch;
-        }
-
-        .campaign-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 20px;
-            padding: 14px;
-            box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .campaign-card:hover {
-            transform: translateY(-1px);
-            transition: 0.16s ease;
-            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
-        }
-
-        .badge-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 7px;
-            margin-bottom: 10px;
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            border-radius: 999px;
-            padding: 4px 9px;
-            font-size: 11px;
-            font-weight: 850;
-            border: 1px solid transparent;
-            line-height: 1;
-            white-space: nowrap;
-        }
-
-        .campaign-title {
-            font-size: 16px;
-            font-weight: 850;
-            letter-spacing: -0.02em;
-            color: #020617;
-            margin-bottom: 6px;
-            line-height: 1.3;
-        }
-
-        .campaign-note {
-            color: #64748b;
-            font-size: 12px;
-            line-height: 1.45;
-            margin-bottom: 11px;
-        }
-
-        .mini-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px;
-            background: #f8fafc;
-            border-radius: 15px;
-            padding: 10px;
-            margin-top: auto;
-        }
-
-        .mini-label {
-            color: #94a3b8;
-            font-size: 10px;
-            font-weight: 800;
-            margin-bottom: 2px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        .mini-value {
-            color: #334155;
-            font-size: 12px;
-            font-weight: 850;
-            word-break: break-word;
-            line-height: 1.35;
-        }
-
-        .empty-state {
-            border: 1px dashed #cbd5e1;
-            border-radius: 24px;
-            padding: 32px;
-            text-align: center;
-            color: #64748b;
-            background: #f8fafc;
-        }
-
         div[data-testid="stSidebar"] {
             display: none;
-        }
-
-        @media (max-width: 900px) {
-            .hero {
-                padding: 24px;
-                border-radius: 24px;
-            }
-
-            .results-panel {
-                max-height: 680px;
-            }
-
-            .results-inner {
-                min-width: 680px;
-            }
-
-            .campaign-grid {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
     """,
@@ -341,11 +145,6 @@ st.markdown(
 # ============================================================
 # HELPERS
 # ============================================================
-
-def clean_html(value: str) -> str:
-    """Remove leading indentation so Streamlit does not render HTML as a code block."""
-    return textwrap.dedent(value).strip()
-
 
 def get_secret(name: str, default: Any = None) -> Any:
     try:
@@ -518,45 +317,42 @@ def campaign_card_html(row: pd.Series) -> str:
     brand_colours = style_for_brand(row.get("brand", ""))
     status_colours = style_for_status(row.get("status", ""))
 
-    return clean_html(
-        f"""
-        <div class="campaign-card">
-          <div>
-            <div class="badge-row">
-              {badge(row.get("brand", "—"), brand_colours)}
-              {badge(str(row.get("status", "—")), status_colours)}
-              {badge(str(row.get("key_date_display", "No date")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
-            </div>
+    return f"""
+<div class="campaign-card">
+  <div>
+    <div class="badge-row">
+      {badge(row.get("brand", "—"), brand_colours)}
+      {badge(str(row.get("status", "—")), status_colours)}
+      {badge(str(row.get("key_date_display", "No date")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
+    </div>
 
-            <div class="campaign-title">{html.escape(str(row.get("campaign", "Untitled campaign")))}</div>
+    <div class="campaign-title">{html.escape(str(row.get("campaign", "Untitled campaign")))}</div>
 
-            <div class="campaign-note">
-              Board: {html.escape(str(row.get("board_name", "—")))}
-              · Group: {html.escape(str(row.get("group", "—")))}
-            </div>
-          </div>
+    <div class="campaign-note">
+      Board: {html.escape(str(row.get("board_name", "—")))} · Group: {html.escape(str(row.get("group", "—")))}
+    </div>
+  </div>
 
-          <div class="mini-grid">
-            <div>
-              <div class="mini-label">Owner</div>
-              <div class="mini-value">{html.escape(str(row.get("owners_display", "—")))}</div>
-            </div>
-            <div>
-              <div class="mini-label">Category</div>
-              <div class="mini-value">{html.escape(str(row.get("stage", "—")))}</div>
-            </div>
-            <div>
-              <div class="mini-label">Status</div>
-              <div class="mini-value">{html.escape(str(row.get("status", "—")))}</div>
-            </div>
-            <div>
-              <div class="mini-label">Date</div>
-              <div class="mini-value">{html.escape(str(row.get("key_date_display", "No date")))}</div>
-            </div>
-          </div>
-        </div>
-        """
-    )
+  <div class="mini-grid">
+    <div>
+      <div class="mini-label">Owner</div>
+      <div class="mini-value">{html.escape(str(row.get("owners_display", "—")))}</div>
+    </div>
+    <div>
+      <div class="mini-label">Category</div>
+      <div class="mini-value">{html.escape(str(row.get("stage", "—")))}</div>
+    </div>
+    <div>
+      <div class="mini-label">Status</div>
+      <div class="mini-value">{html.escape(str(row.get("status", "—")))}</div>
+    </div>
+    <div>
+      <div class="mini-label">Date</div>
+      <div class="mini-value">{html.escape(str(row.get("key_date_display", "No date")))}</div>
+    </div>
+  </div>
+</div>
+""".strip()
 
 
 # ============================================================
@@ -857,28 +653,13 @@ def apply_person_filter(df: pd.DataFrame, person: str) -> pd.DataFrame:
 
 def cards_grid_html(df: pd.DataFrame) -> str:
     cards = "\n".join(campaign_card_html(row) for _, row in df.iterrows())
-    return clean_html(
-        f"""
-        <div class="campaign-grid">
-            {cards}
-        </div>
-        """
-    )
+    return f'<div class="campaign-grid">{cards}</div>'
 
 
 def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
     if filtered_df.empty:
-        return clean_html(
-            """
-            <div class="results-panel">
-              <div class="results-inner">
-                <div class="empty-state">No campaigns found for the selected owner, brand and date range.</div>
-              </div>
-            </div>
-            """
-        )
-
-    if owner_filter == "All":
+        content = '<div class="empty-state">No campaigns found for the selected owner, brand and date range.</div>'
+    elif owner_filter == "All":
         blocks: List[str] = []
 
         for owner in owner_universe(filtered_df):
@@ -888,35 +669,215 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
                 continue
 
             blocks.append(
-                clean_html(
-                    f"""
-                    <div class="owner-block">
-                      <div class="owner-header">
-                        <div>
-                          <div class="owner-name">{html.escape(owner)}</div>
-                          <div class="owner-sub">{len(owner_df)} campaign{'s' if len(owner_df) != 1 else ''} assigned</div>
-                        </div>
-                        <div class="count-pill">{len(owner_df)}</div>
-                      </div>
-                      {cards_grid_html(owner_df)}
-                    </div>
-                    """
-                )
+                f"""
+<div class="owner-block">
+  <div class="owner-header">
+    <div>
+      <div class="owner-name">{html.escape(owner)}</div>
+      <div class="owner-sub">{len(owner_df)} campaign{'s' if len(owner_df) != 1 else ''} assigned</div>
+    </div>
+    <div class="count-pill">{len(owner_df)}</div>
+  </div>
+  {cards_grid_html(owner_df)}
+</div>
+""".strip()
             )
 
         content = "\n".join(blocks)
     else:
         content = cards_grid_html(filtered_df)
 
-    return clean_html(
-        f"""
-        <div class="results-panel">
-          <div class="results-inner">
-            {content}
-          </div>
-        </div>
-        """
-    )
+    return f"""
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * {{ box-sizing: border-box; }}
+
+  html, body {{
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #020617;
+  }}
+
+  .results-panel {{
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 28px;
+    box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
+    padding: 16px;
+    height: 740px;
+    overflow-y: auto;
+    overflow-x: auto;
+  }}
+
+  .results-panel::-webkit-scrollbar {{ width: 10px; height: 10px; }}
+  .results-panel::-webkit-scrollbar-track {{ background: #f1f5f9; border-radius: 999px; }}
+  .results-panel::-webkit-scrollbar-thumb {{ background: #cbd5e1; border-radius: 999px; border: 2px solid #f1f5f9; }}
+  .results-panel::-webkit-scrollbar-thumb:hover {{ background: #94a3b8; }}
+
+  .results-inner {{
+    min-width: 900px;
+  }}
+
+  .owner-block {{
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 24px;
+    padding: 14px;
+    margin-bottom: 14px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  }}
+
+  .owner-block:last-child {{ margin-bottom: 0; }}
+
+  .owner-header {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+    padding: 2px 2px 0;
+  }}
+
+  .owner-name {{
+    font-size: 18px;
+    font-weight: 850;
+    letter-spacing: -0.03em;
+    color: #020617;
+    margin: 0;
+  }}
+
+  .owner-sub {{
+    color: #64748b;
+    font-size: 13px;
+    margin-top: 2px;
+  }}
+
+  .count-pill {{
+    background: #020617;
+    color: white;
+    border-radius: 999px;
+    padding: 6px 11px;
+    font-size: 12px;
+    font-weight: 850;
+    white-space: nowrap;
+  }}
+
+  .campaign-grid {{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: stretch;
+  }}
+
+  .campaign-card {{
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 14px;
+    box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }}
+
+  .campaign-card:hover {{
+    transform: translateY(-1px);
+    transition: 0.16s ease;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+  }}
+
+  .badge-row {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 10px;
+  }}
+
+  .badge {{
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-size: 11px;
+    font-weight: 850;
+    border: 1px solid transparent;
+    line-height: 1;
+    white-space: nowrap;
+  }}
+
+  .campaign-title {{
+    font-size: 16px;
+    font-weight: 850;
+    letter-spacing: -0.02em;
+    color: #020617;
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }}
+
+  .campaign-note {{
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.45;
+    margin-bottom: 11px;
+  }}
+
+  .mini-grid {{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    background: #f8fafc;
+    border-radius: 15px;
+    padding: 10px;
+    margin-top: auto;
+  }}
+
+  .mini-label {{
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 800;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }}
+
+  .mini-value {{
+    color: #334155;
+    font-size: 12px;
+    font-weight: 850;
+    word-break: break-word;
+    line-height: 1.35;
+  }}
+
+  .empty-state {{
+    border: 1px dashed #cbd5e1;
+    border-radius: 24px;
+    padding: 32px;
+    text-align: center;
+    color: #64748b;
+    background: #f8fafc;
+  }}
+
+  @media (max-width: 900px) {{
+    .results-inner {{ min-width: 680px; }}
+    .campaign-grid {{ grid-template-columns: 1fr; }}
+  }}
+</style>
+</head>
+<body>
+  <div class="results-panel">
+    <div class="results-inner">
+      {content}
+    </div>
+  </div>
+</body>
+</html>
+""".strip()
 
 
 # ============================================================
@@ -1019,19 +980,18 @@ with filter_col_3:
     )
 
 st.markdown(
-    clean_html(
-        f"""
-        <div class="range-caption">
-            Showing: {selected_start.strftime('%d %b %Y')}–{selected_end.strftime('%d %b %Y')}
-        </div>
-        """
-    ),
+    f"""
+    <div class="range-caption">
+        Showing: {selected_start.strftime('%d %b %Y')}–{selected_end.strftime('%d %b %Y')}
+    </div>
+    """,
     unsafe_allow_html=True,
 )
 
 filtered_df = apply_person_filter(base_filtered_df, owner_filter)
 
-st.markdown(
+components.html(
     build_results_html(filtered_df, owner_filter),
-    unsafe_allow_html=True,
+    height=780,
+    scrolling=False,
 )
