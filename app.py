@@ -318,40 +318,43 @@ def campaign_card_html(row: pd.Series) -> str:
     status_colours = style_for_status(row.get("status", ""))
 
     return f"""
-<div class="campaign-card">
-  <div>
-    <div class="badge-row">
-      {badge(row.get("brand", "—"), brand_colours)}
-      {badge(str(row.get("status", "—")), status_colours)}
-      {badge(str(row.get("key_date_display", "No date")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
+<details class="campaign-card">
+  <summary class="campaign-summary">
+    <span class="summary-toggle" aria-hidden="true"></span>
+    <div class="summary-main">
+      <div class="badge-row">
+        {badge(row.get("brand", "—"), brand_colours)}
+        {badge(str(row.get("status", "—")), status_colours)}
+        {badge(str(row.get("key_date_display", "No date")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
+      </div>
+      <div class="campaign-title">{html.escape(str(row.get("campaign", "Untitled campaign")))}</div>
+      <div class="campaign-note">
+        Board: {html.escape(str(row.get("board_name", "—")))} · Group: {html.escape(str(row.get("group", "—")))}
+      </div>
     </div>
+  </summary>
 
-    <div class="campaign-title">{html.escape(str(row.get("campaign", "Untitled campaign")))}</div>
-
-    <div class="campaign-note">
-      Board: {html.escape(str(row.get("board_name", "—")))} · Group: {html.escape(str(row.get("group", "—")))}
+  <div class="campaign-details">
+    <div class="mini-grid">
+      <div>
+        <div class="mini-label">Owner</div>
+        <div class="mini-value">{html.escape(str(row.get("owners_display", "—")))}</div>
+      </div>
+      <div>
+        <div class="mini-label">Category</div>
+        <div class="mini-value">{html.escape(str(row.get("stage", "—")))}</div>
+      </div>
+      <div>
+        <div class="mini-label">Status</div>
+        <div class="mini-value">{html.escape(str(row.get("status", "—")))}</div>
+      </div>
+      <div>
+        <div class="mini-label">Date</div>
+        <div class="mini-value">{html.escape(str(row.get("key_date_display", "No date")))}</div>
+      </div>
     </div>
   </div>
-
-  <div class="mini-grid">
-    <div>
-      <div class="mini-label">Owner</div>
-      <div class="mini-value">{html.escape(str(row.get("owners_display", "—")))}</div>
-    </div>
-    <div>
-      <div class="mini-label">Category</div>
-      <div class="mini-value">{html.escape(str(row.get("stage", "—")))}</div>
-    </div>
-    <div>
-      <div class="mini-label">Status</div>
-      <div class="mini-value">{html.escape(str(row.get("status", "—")))}</div>
-    </div>
-    <div>
-      <div class="mini-label">Date</div>
-      <div class="mini-value">{html.escape(str(row.get("key_date_display", "No date")))}</div>
-    </div>
-  </div>
-</div>
+</details>
 """.strip()
 
 
@@ -656,6 +659,23 @@ def cards_grid_html(df: pd.DataFrame) -> str:
     return f'<div class="campaign-grid">{cards}</div>'
 
 
+def owner_block_html(owner: str, owner_df: pd.DataFrame, open_by_default: bool = True) -> str:
+    open_attr = " open" if open_by_default else ""
+    return f"""
+<details class="owner-block"{open_attr}>
+  <summary class="owner-summary">
+    <span class="owner-toggle" aria-hidden="true"></span>
+    <div class="owner-summary-main">
+      <div class="owner-name">{html.escape(owner)}</div>
+      <div class="owner-sub">{len(owner_df)} campaign{'s' if len(owner_df) != 1 else ''} assigned</div>
+    </div>
+    <div class="count-pill">{len(owner_df)}</div>
+  </summary>
+  {cards_grid_html(owner_df)}
+</details>
+""".strip()
+
+
 def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
     if filtered_df.empty:
         content = '<div class="empty-state">No campaigns found for the selected owner, brand and date range.</div>'
@@ -668,24 +688,11 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
             if owner_df.empty:
                 continue
 
-            blocks.append(
-                f"""
-<div class="owner-block">
-  <div class="owner-header">
-    <div>
-      <div class="owner-name">{html.escape(owner)}</div>
-      <div class="owner-sub">{len(owner_df)} campaign{'s' if len(owner_df) != 1 else ''} assigned</div>
-    </div>
-    <div class="count-pill">{len(owner_df)}</div>
-  </div>
-  {cards_grid_html(owner_df)}
-</div>
-""".strip()
-            )
+            blocks.append(owner_block_html(owner, owner_df, open_by_default=True))
 
         content = "\n".join(blocks)
     else:
-        content = cards_grid_html(filtered_df)
+        content = owner_block_html(owner_filter, filtered_df, open_by_default=True)
 
     return f"""
 <!doctype html>
@@ -723,6 +730,15 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
     min-width: 900px;
   }}
 
+  details > summary {{
+    list-style: none;
+    cursor: pointer;
+  }}
+
+  details > summary::-webkit-details-marker {{
+    display: none;
+  }}
+
   .owner-block {{
     background: #ffffff;
     border: 1px solid #e2e8f0;
@@ -734,13 +750,40 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
 
   .owner-block:last-child {{ margin-bottom: 0; }}
 
-  .owner-header {{
+  .owner-summary {{
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 14px;
-    margin-bottom: 12px;
     padding: 2px 2px 0;
+  }}
+
+  .owner-block[open] .owner-summary {{
+    margin-bottom: 12px;
+  }}
+
+  .owner-toggle::before {{
+    content: "+";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #020617;
+    font-size: 16px;
+    font-weight: 900;
+    margin-right: 2px;
+  }}
+
+  .owner-block[open] .owner-toggle::before {{
+    content: "−";
+  }}
+
+  .owner-summary-main {{
+    flex: 1;
+    min-width: 0;
   }}
 
   .owner-name {{
@@ -771,7 +814,7 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
-    align-items: stretch;
+    align-items: start;
   }}
 
   .campaign-card {{
@@ -781,15 +824,42 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
     padding: 14px;
     box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
   }}
 
   .campaign-card:hover {{
     transform: translateY(-1px);
     transition: 0.16s ease;
     box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+  }}
+
+  .campaign-summary {{
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }}
+
+  .summary-toggle::before {{
+    content: "+";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #020617;
+    font-size: 15px;
+    font-weight: 900;
+    margin-top: 1px;
+  }}
+
+  .campaign-card[open] .summary-toggle::before {{
+    content: "−";
+  }}
+
+  .summary-main {{
+    flex: 1;
+    min-width: 0;
   }}
 
   .badge-row {{
@@ -824,7 +894,10 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
     color: #64748b;
     font-size: 12px;
     line-height: 1.45;
-    margin-bottom: 11px;
+  }}
+
+  .campaign-details {{
+    margin-top: 12px;
   }}
 
   .mini-grid {{
@@ -834,7 +907,6 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
     background: #f8fafc;
     border-radius: 15px;
     padding: 10px;
-    margin-top: auto;
   }}
 
   .mini-label {{
