@@ -80,7 +80,7 @@ st.markdown(
         .block-container {
             padding-top: 1.15rem;
             padding-bottom: 2.25rem;
-            max-width: 1320px;
+            max-width: 1380px;
         }
 
         .hero {
@@ -118,42 +118,10 @@ st.markdown(
 
         .hero-copy {
             margin-top: 13px;
-            max-width: 840px;
+            max-width: 920px;
             color: #cbd5e1;
             font-size: 16px;
             line-height: 1.65;
-        }
-
-        .filter-header-card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 24px;
-            padding: 18px 18px 16px;
-            box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
-            margin-bottom: 14px;
-        }
-
-        .filter-kicker {
-            text-transform: uppercase;
-            letter-spacing: 0.18em;
-            color: #94a3b8;
-            font-weight: 850;
-            font-size: 11px;
-            margin-bottom: 4px;
-        }
-
-        .filter-title {
-            font-size: 24px;
-            font-weight: 850;
-            letter-spacing: -0.04em;
-            color: #020617;
-            margin-bottom: 6px;
-        }
-
-        .filter-sub {
-            font-size: 13px;
-            color: #64748b;
-            line-height: 1.5;
         }
 
         .range-caption {
@@ -161,6 +129,7 @@ st.markdown(
             font-size: 13px;
             line-height: 1.45;
             margin-top: 12px;
+            margin-bottom: 14px;
         }
 
         .results-panel {
@@ -257,13 +226,6 @@ st.markdown(
             transform: translateY(-1px);
             transition: 0.16s ease;
             box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
-        }
-
-        .card-topline {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 12px;
         }
 
         .badge-row {
@@ -959,20 +921,12 @@ if campaigns_df.empty:
     st.warning("No campaign items were returned from the selected Monday boards.")
     st.stop()
 
-main_left, main_right = st.columns([1, 2.25], gap="large")
+filter_col_1, filter_col_2, filter_col_3 = st.columns(3, gap="large")
 
-with main_left:
-    st.markdown(
-        """
-        <div class="filter-header-card">
-            <div class="filter-kicker">Dashboard</div>
-            <div class="filter-title">Campaign Owner Dashboard</div>
-            <div class="filter-sub">Choose your range, brand and owner.</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+custom_start: Optional[date] = None
+custom_end: Optional[date] = None
 
+with filter_col_1:
     period_filter = st.selectbox(
         "Date range",
         ["This Week", "Next Week", "This Month", "Next Month", "Custom"],
@@ -980,16 +934,27 @@ with main_left:
         key="period_filter",
     )
 
-    custom_start: Optional[date] = None
-    custom_end: Optional[date] = None
+with filter_col_2:
+    brand_filter = st.selectbox(
+        "Brand",
+        ["All", "Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"],
+        index=0,
+        key="brand_filter",
+    )
 
-    if period_filter == "Custom":
+selected_start: date
+selected_end: date
+
+if period_filter == "Custom":
+    custom_col_1, custom_col_2 = st.columns(2, gap="large")
+
+    with custom_col_1:
         today = london_today()
         default_start = today - timedelta(days=today.weekday())
         default_end = default_start + timedelta(days=6)
 
         custom_value = st.date_input(
-            "Custom date range",
+            "Custom start / end",
             value=(default_start, default_end),
             format="DD/MM/YYYY",
             key="custom_range",
@@ -1001,24 +966,18 @@ with main_left:
             custom_start = custom_value
             custom_end = custom_value
 
-    selected_start, selected_end = period_range(period_filter, custom_start, custom_end)
+selected_start, selected_end = period_range(period_filter, custom_start, custom_end)
 
-    brand_filter = st.selectbox(
-        "Brand",
-        ["All", "Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"],
-        index=0,
-        key="brand_filter",
-    )
+base_filtered_df = apply_base_filters(
+    campaigns_df,
+    start_date=selected_start,
+    end_date=selected_end,
+    brand=brand_filter,
+)
 
-    base_filtered_df = apply_base_filters(
-        campaigns_df,
-        start_date=selected_start,
-        end_date=selected_end,
-        brand=brand_filter,
-    )
+owner_options = ["All"] + owner_universe(base_filtered_df)
 
-    owner_options = ["All"] + owner_universe(base_filtered_df)
-
+with filter_col_3:
     owner_filter = st.selectbox(
         "Owner",
         owner_options,
@@ -1026,19 +985,18 @@ with main_left:
         key="owner_filter",
     )
 
-    st.markdown(
-        f"""
-        <div class="range-caption">
-            Showing: {selected_start.strftime('%d %b %Y')}–{selected_end.strftime('%d %b %Y')}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+st.markdown(
+    f"""
+    <div class="range-caption">
+        Showing: {selected_start.strftime('%d %b %Y')}–{selected_end.strftime('%d %b %Y')}
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 filtered_df = apply_person_filter(base_filtered_df, owner_filter)
 
-with main_right:
-    st.markdown(
-        build_results_html(filtered_df, owner_filter),
-        unsafe_allow_html=True,
-    )
+st.markdown(
+    build_results_html(filtered_df, owner_filter),
+    unsafe_allow_html=True,
+)
