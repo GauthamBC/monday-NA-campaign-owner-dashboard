@@ -233,31 +233,80 @@ def month_range(year: int, month: int) -> Tuple[date, date]:
     return start, next_month_start - timedelta(days=1)
 
 
-def period_range(
-    period: str,
-    custom_start: Optional[date] = None,
-    custom_end: Optional[date] = None,
-) -> Tuple[date, date]:
+def add_months(value: date, offset: int) -> date:
+    month_index = value.month - 1 + offset
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    return date(year, month, 1)
+
+
+def get_month_options() -> List[Dict[str, Any]]:
     today = london_today()
-    start_this_week = today - timedelta(days=today.weekday())
+    current_month = date(today.year, today.month, 1)
 
-    if period == "This Week":
-        return start_this_week, start_this_week + timedelta(days=6)
+    options: List[Dict[str, Any]] = []
 
-    if period == "Next Week":
-        return start_this_week + timedelta(days=7), start_this_week + timedelta(days=13)
+    for offset in range(-2, 10):
+        month_start = add_months(current_month, offset)
+        month_end = month_range(month_start.year, month_start.month)[1]
 
-    if period == "This Month":
-        return month_range(today.year, today.month)
+        options.append(
+            {
+                "label": month_start.strftime("%B %Y"),
+                "start": month_start,
+                "end": month_end,
+            }
+        )
 
-    if period == "Next Month":
-        next_month_seed = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
-        return month_range(next_month_seed.year, next_month_seed.month)
+    return options
 
-    if custom_start and custom_end:
-        return min(custom_start, custom_end), max(custom_start, custom_end)
 
-    return start_this_week, start_this_week + timedelta(days=6)
+def get_week_options_for_month(month_start: date, month_end: date) -> List[Dict[str, Any]]:
+    options: List[Dict[str, Any]] = [
+        {
+            "label": "All weeks",
+            "start": month_start,
+            "end": month_end,
+        }
+    ]
+
+    first_monday = month_start - timedelta(days=month_start.weekday())
+    cursor = first_monday
+    week_number = 1
+
+    while cursor <= month_end:
+        raw_start = cursor
+        raw_end = cursor + timedelta(days=6)
+
+        clipped_start = max(raw_start, month_start)
+        clipped_end = min(raw_end, month_end)
+
+        if clipped_start <= clipped_end:
+            options.append(
+                {
+                    "label": f"Week {week_number}: {clipped_start.strftime('%d %b')}–{clipped_end.strftime('%d %b')}",
+                    "start": clipped_start,
+                    "end": clipped_end,
+                }
+            )
+
+        cursor += timedelta(days=7)
+        week_number += 1
+
+    return options
+
+
+def default_week_index(week_options: List[Dict[str, Any]], month_start: date, month_end: date) -> int:
+    today = london_today()
+
+    if not (month_start <= today <= month_end):
+        return 0
+
+    for idx, option in enumerate(week_options):
+        if option["start"] <= today <= option["end"]:
+            return idx
+
+    return 0
 
 
 def parse_monday_date(text: Any, raw_value: Any = None) -> Optional[date]:
@@ -679,7 +728,7 @@ def owner_block_html(owner: str, owner_df: pd.DataFrame, open_by_default: bool =
 
 def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
     if filtered_df.empty:
-        content = '<div class="empty-state">No campaigns found for the selected owner, brand and date range.</div>'
+        content = '<div class="empty-state">No campaigns found for the selected owner, brand and week.</div>'
 
     elif owner_filter == "All":
         blocks: List[str] = []
@@ -965,7 +1014,7 @@ st.markdown(
         <div class="hero-pill">📌 Monday.com live dashboard</div>
         <h1 class="hero-title">Campaign Owner Dashboard</h1>
         <div class="hero-copy">
-            Choose a date range, brand and owner to see assigned campaigns in a compact weekly view.
+            Choose a month, week, brand and owner to see assigned campaigns in a compact weekly view.
         </div>
     </div>
     """,
@@ -993,49 +1042,48 @@ if campaigns_df.empty:
     st.warning("No campaign items were returned from the selected Monday boards.")
     st.stop()
 
-filter_col_1, filter_col_2, filter_col_3 = st.columns(3, gap="large")
+month_options = get_month_options()
+month_labels = [option["label"] for option in month_options]
 
-custom_start: Optional[date] = None
-custom_end: Optional[date] = None
+today = london_today()
+current_month_label = date(today.year, today.month, 1).strftime("%B %Y")
+default_month_index = month_labels.index(current_month_label) if current_month_label in month_labels else 0
+
+filter_col_1, filter_col_2, filter_col_3, filter_col_4 = st.columns(4, gap="large")
 
 with filter_col_1:
-    period_filter = st.selectbox(
-        "Date range",
-        ["This Week", "Next Week", "This Month", "Next Month", "Custom"],
-        index=0,
-        key="period_filter",
+    selected_month_label = st.selectbox(
+        "Month",
+        month_labels,
+        index=default_month_index,
+        key="month_filter",
     )
 
+selected_month = next(option for option in month_options if option["label"] == selected_month_label)
+
+week_options = get_week_options_for_month(selected_month["start"], selected_month["end"])
+week_labels = [option["label"] for option in week_options]
+week_default_index = default_week_index(week_options, selected_month["start"], selected_month["end"])
+
 with filter_col_2:
+    selected_week_label = st.selectbox(
+        "Week",
+        week_labels,
+        index=week_default_index,
+        key=f"week_filter_{selected_month_label}",
+    )
+
+selected_week = next(option for option in week_options if option["label"] == selected_week_label)
+selected_start = selected_week["start"]
+selected_end = selected_week["end"]
+
+with filter_col_3:
     brand_filter = st.selectbox(
         "Brand",
         ["All", "Action Network", "VegasInsider", "Canada Sports Betting", "RotoGrinders"],
         index=0,
         key="brand_filter",
     )
-
-if period_filter == "Custom":
-    custom_col_1, custom_col_2 = st.columns(2, gap="large")
-
-    with custom_col_1:
-        today = london_today()
-        default_start = today - timedelta(days=today.weekday())
-        default_end = default_start + timedelta(days=6)
-
-        custom_value = st.date_input(
-            "Custom start / end",
-            value=(default_start, default_end),
-            format="DD/MM/YYYY",
-            key="custom_range",
-        )
-
-        if isinstance(custom_value, tuple) and len(custom_value) == 2:
-            custom_start, custom_end = custom_value
-        elif isinstance(custom_value, date):
-            custom_start = custom_value
-            custom_end = custom_value
-
-selected_start, selected_end = period_range(period_filter, custom_start, custom_end)
 
 base_filtered_df = apply_base_filters(
     campaigns_df,
@@ -1046,7 +1094,7 @@ base_filtered_df = apply_base_filters(
 
 owner_options = ["All"] + owner_universe(base_filtered_df)
 
-with filter_col_3:
+with filter_col_4:
     owner_filter = st.selectbox(
         "Owner",
         owner_options,
@@ -1057,7 +1105,7 @@ with filter_col_3:
 st.markdown(
     f"""
     <div class="range-caption">
-        Showing: {selected_start.strftime('%d %b %Y')}–{selected_end.strftime('%d %b %Y')}
+        Showing: {selected_month_label} · {selected_week_label} · {selected_start.strftime('%d %b %Y')}–{selected_end.strftime('%d %b %Y')}
     </div>
     """,
     unsafe_allow_html=True,
