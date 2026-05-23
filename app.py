@@ -659,8 +659,9 @@ def cards_grid_html(df: pd.DataFrame) -> str:
     return f'<div class="campaign-grid">{cards}</div>'
 
 
-def owner_block_html(owner: str, owner_df: pd.DataFrame, open_by_default: bool = True) -> str:
+def owner_block_html(owner: str, owner_df: pd.DataFrame, open_by_default: bool = False) -> str:
     open_attr = " open" if open_by_default else ""
+
     return f"""
 <details class="owner-block"{open_attr}>
   <summary class="owner-summary">
@@ -679,6 +680,7 @@ def owner_block_html(owner: str, owner_df: pd.DataFrame, open_by_default: bool =
 def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
     if filtered_df.empty:
         content = '<div class="empty-state">No campaigns found for the selected owner, brand and date range.</div>'
+
     elif owner_filter == "All":
         blocks: List[str] = []
 
@@ -688,11 +690,12 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
             if owner_df.empty:
                 continue
 
-            blocks.append(owner_block_html(owner, owner_df, open_by_default=True))
+            blocks.append(owner_block_html(owner, owner_df, open_by_default=False))
 
         content = "\n".join(blocks)
+
     else:
-        content = owner_block_html(owner_filter, filtered_df, open_by_default=True)
+        content = owner_block_html(owner_filter, filtered_df, open_by_default=False)
 
     return f"""
 <!doctype html>
