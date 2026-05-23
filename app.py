@@ -96,7 +96,7 @@ st.markdown(
         .block-container {
             padding-top: 1.15rem;
             padding-bottom: 2.25rem;
-            max-width: 1380px;
+            max-width: 1440px;
         }
 
         .hero {
@@ -146,6 +146,17 @@ st.markdown(
             line-height: 1.45;
             margin-top: 12px;
             margin-bottom: 14px;
+        }
+
+        .button-spacer {
+            height: 28px;
+        }
+
+        div[data-testid="stButton"] > button {
+            height: 58px;
+            border-radius: 12px;
+            font-weight: 800;
+            border: 1px solid #e2e8f0;
         }
 
         div[data-testid="stSidebar"] {
@@ -840,9 +851,7 @@ def fetch_board_items(
 ) -> Dict[str, Any]:
     board_id = str(board.get("id", ""))
 
-    try_selected = bool(selected_column_ids)
-
-    if try_selected:
+    if selected_column_ids:
         try:
             data = monday_graphql(
                 api_key,
@@ -1442,15 +1451,6 @@ if not api_key:
     st.error("Missing Monday API key in Streamlit secrets.")
     st.stop()
 
-refresh_col, _ = st.columns([1, 5])
-
-with refresh_col:
-    refresh_clicked = st.button("Refresh data", use_container_width=True)
-
-if refresh_clicked:
-    fetch_monday_data.clear()
-    st.rerun()
-
 try:
     with st.spinner("Pulling campaign data from Monday.com..."):
         monday_boards, monday_user_map = fetch_monday_data(api_key, api_version, board_ids)
@@ -1471,7 +1471,10 @@ today = london_today()
 current_month_label = date(today.year, today.month, 1).strftime("%B %Y")
 default_month_index = month_labels.index(current_month_label) if current_month_label in month_labels else 0
 
-filter_col_1, filter_col_2, filter_col_3, filter_col_4 = st.columns(4, gap="large")
+filter_col_1, filter_col_2, filter_col_3, filter_col_4, filter_col_5, filter_col_6 = st.columns(
+    6,
+    gap="large",
+)
 
 with filter_col_1:
     selected_month_label = st.selectbox(
@@ -1523,6 +1526,27 @@ with filter_col_4:
         index=0,
         key="owner_filter",
     )
+
+with filter_col_5:
+    st.markdown('<div class="button-spacer"></div>', unsafe_allow_html=True)
+    get_data_clicked = st.button(
+        "Get data",
+        type="primary",
+        use_container_width=True,
+        key="get_data_button",
+    )
+
+with filter_col_6:
+    st.markdown('<div class="button-spacer"></div>', unsafe_allow_html=True)
+    refresh_clicked = st.button(
+        "Refresh data",
+        use_container_width=True,
+        key="refresh_data_button",
+    )
+
+if refresh_clicked:
+    fetch_monday_data.clear()
+    st.rerun()
 
 st.markdown(
     f"""
