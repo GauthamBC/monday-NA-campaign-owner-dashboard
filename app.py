@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import re
+import textwrap
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from zoneinfo import ZoneInfo
@@ -341,6 +342,11 @@ st.markdown(
 # HELPERS
 # ============================================================
 
+def clean_html(value: str) -> str:
+    """Remove leading indentation so Streamlit does not render HTML as a code block."""
+    return textwrap.dedent(value).strip()
+
+
 def get_secret(name: str, default: Any = None) -> Any:
     try:
         return st.secrets.get(name, default)
@@ -512,43 +518,45 @@ def campaign_card_html(row: pd.Series) -> str:
     brand_colours = style_for_brand(row.get("brand", ""))
     status_colours = style_for_status(row.get("status", ""))
 
-    return f"""
-<div class="campaign-card">
-  <div>
-    <div class="badge-row">
-      {badge(row.get("brand", "—"), brand_colours)}
-      {badge(str(row.get("status", "—")), status_colours)}
-      {badge(str(row.get("key_date_display", "No date")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
-    </div>
+    return clean_html(
+        f"""
+        <div class="campaign-card">
+          <div>
+            <div class="badge-row">
+              {badge(row.get("brand", "—"), brand_colours)}
+              {badge(str(row.get("status", "—")), status_colours)}
+              {badge(str(row.get("key_date_display", "No date")), {"bg": "#F8FAFC", "text": "#334155", "border": "#CBD5E1"})}
+            </div>
 
-    <div class="campaign-title">{html.escape(str(row.get("campaign", "Untitled campaign")))}</div>
+            <div class="campaign-title">{html.escape(str(row.get("campaign", "Untitled campaign")))}</div>
 
-    <div class="campaign-note">
-      Board: {html.escape(str(row.get("board_name", "—")))}
-      · Group: {html.escape(str(row.get("group", "—")))}
-    </div>
-  </div>
+            <div class="campaign-note">
+              Board: {html.escape(str(row.get("board_name", "—")))}
+              · Group: {html.escape(str(row.get("group", "—")))}
+            </div>
+          </div>
 
-  <div class="mini-grid">
-    <div>
-      <div class="mini-label">Owner</div>
-      <div class="mini-value">{html.escape(str(row.get("owners_display", "—")))}</div>
-    </div>
-    <div>
-      <div class="mini-label">Category</div>
-      <div class="mini-value">{html.escape(str(row.get("stage", "—")))}</div>
-    </div>
-    <div>
-      <div class="mini-label">Status</div>
-      <div class="mini-value">{html.escape(str(row.get("status", "—")))}</div>
-    </div>
-    <div>
-      <div class="mini-label">Date</div>
-      <div class="mini-value">{html.escape(str(row.get("key_date_display", "No date")))}</div>
-    </div>
-  </div>
-</div>
-""".strip()
+          <div class="mini-grid">
+            <div>
+              <div class="mini-label">Owner</div>
+              <div class="mini-value">{html.escape(str(row.get("owners_display", "—")))}</div>
+            </div>
+            <div>
+              <div class="mini-label">Category</div>
+              <div class="mini-value">{html.escape(str(row.get("stage", "—")))}</div>
+            </div>
+            <div>
+              <div class="mini-label">Status</div>
+              <div class="mini-value">{html.escape(str(row.get("status", "—")))}</div>
+            </div>
+            <div>
+              <div class="mini-label">Date</div>
+              <div class="mini-value">{html.escape(str(row.get("key_date_display", "No date")))}</div>
+            </div>
+          </div>
+        </div>
+        """
+    )
 
 
 # ============================================================
@@ -849,18 +857,26 @@ def apply_person_filter(df: pd.DataFrame, person: str) -> pd.DataFrame:
 
 def cards_grid_html(df: pd.DataFrame) -> str:
     cards = "\n".join(campaign_card_html(row) for _, row in df.iterrows())
-    return f'<div class="campaign-grid">{cards}</div>'
+    return clean_html(
+        f"""
+        <div class="campaign-grid">
+            {cards}
+        </div>
+        """
+    )
 
 
 def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
     if filtered_df.empty:
-        return """
-        <div class="results-panel">
-          <div class="results-inner">
-            <div class="empty-state">No campaigns found for the selected owner, brand and date range.</div>
-          </div>
-        </div>
-        """.strip()
+        return clean_html(
+            """
+            <div class="results-panel">
+              <div class="results-inner">
+                <div class="empty-state">No campaigns found for the selected owner, brand and date range.</div>
+              </div>
+            </div>
+            """
+        )
 
     if owner_filter == "All":
         blocks: List[str] = []
@@ -872,31 +888,35 @@ def build_results_html(filtered_df: pd.DataFrame, owner_filter: str) -> str:
                 continue
 
             blocks.append(
-                f"""
-                <div class="owner-block">
-                  <div class="owner-header">
-                    <div>
-                      <div class="owner-name">{html.escape(owner)}</div>
-                      <div class="owner-sub">{len(owner_df)} campaign{'s' if len(owner_df) != 1 else ''} assigned</div>
+                clean_html(
+                    f"""
+                    <div class="owner-block">
+                      <div class="owner-header">
+                        <div>
+                          <div class="owner-name">{html.escape(owner)}</div>
+                          <div class="owner-sub">{len(owner_df)} campaign{'s' if len(owner_df) != 1 else ''} assigned</div>
+                        </div>
+                        <div class="count-pill">{len(owner_df)}</div>
+                      </div>
+                      {cards_grid_html(owner_df)}
                     </div>
-                    <div class="count-pill">{len(owner_df)}</div>
-                  </div>
-                  {cards_grid_html(owner_df)}
-                </div>
-                """.strip()
+                    """
+                )
             )
 
         content = "\n".join(blocks)
     else:
         content = cards_grid_html(filtered_df)
 
-    return f"""
-    <div class="results-panel">
-      <div class="results-inner">
-        {content}
-      </div>
-    </div>
-    """.strip()
+    return clean_html(
+        f"""
+        <div class="results-panel">
+          <div class="results-inner">
+            {content}
+          </div>
+        </div>
+        """
+    )
 
 
 # ============================================================
@@ -999,11 +1019,13 @@ with filter_col_3:
     )
 
 st.markdown(
-    f"""
-    <div class="range-caption">
-        Showing: {selected_start.strftime('%d %b %Y')}–{selected_end.strftime('%d %b %Y')}
-    </div>
-    """,
+    clean_html(
+        f"""
+        <div class="range-caption">
+            Showing: {selected_start.strftime('%d %b %Y')}–{selected_end.strftime('%d %b %Y')}
+        </div>
+        """
+    ),
     unsafe_allow_html=True,
 )
 
